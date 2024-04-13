@@ -12,11 +12,12 @@ public class Arena {
 
     @Getter
     private World world;
-
+    private WorldGenerator generator;
     private int startX, startY, startZ;
     private int endX, endY, endZ;
 
-    public Arena(String name, World world, Location pos1, Location pos2) {
+    public Arena(String name, World world, WorldGenerator generator, Location pos1, Location pos2) {
+        this.generator = generator;
         this.name = name;
         this.world = world;
         this.startX = Math.min(pos1.getBlockX(), pos2.getBlockX());
@@ -34,10 +35,14 @@ public class Arena {
     }
 
     public void save() {
-        WorldGenerator.saveWorld(world, startX, startY, startZ, endX, endY, endZ);
+        generator.saveWorld(world, startX, startY, startZ, endX, endY, endZ);
     }
 
     public void reset() {
-        WorldGenerator.resetWorld(world);
+        generator.resetWorld(world);
+    }
+
+    public static void loadArenas(WorldGenerator generator) {
+        generator.loadAllArenas();
     }
 }

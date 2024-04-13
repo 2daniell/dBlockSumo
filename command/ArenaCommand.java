@@ -3,7 +3,9 @@ package com.daniel.blocksumo.command;
 import com.daniel.blocksumo.manager.MatchManager;
 import com.daniel.blocksumo.model.Arena;
 import com.daniel.blocksumo.model.Match;
+import com.daniel.blocksumo.world.WorldGenerator;
 import org.apache.commons.lang.StringUtils;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -16,9 +18,11 @@ public class ArenaCommand implements CommandExecutor {
     private Location pos2;
 
     private final MatchManager manager;
+    private final WorldGenerator generator;
 
-    public ArenaCommand(MatchManager manager) {
+    public ArenaCommand(MatchManager manager, WorldGenerator generator) {
         this.manager = manager;
+        this.generator = generator;
     }
 
     @Override
@@ -42,7 +46,7 @@ public class ArenaCommand implements CommandExecutor {
             if(pos1 != null && pos2 != null) {
                 if (pos1.getWorld().equals(pos2.getWorld())) {
                     String name = StringUtils.join(args, " ", 1, args.length);
-                    Arena arena = new Arena(name, pos1.getWorld(), pos1, pos2);
+                    Arena arena = new Arena(name, pos1.getWorld(), generator, pos1, pos2);
                     Match match = arena.match();
                     manager.add(match);
                     player.sendMessage("§aArena §f" + name + " §adefinida com sucesso");
@@ -62,10 +66,6 @@ public class ArenaCommand implements CommandExecutor {
         } else if (args[0].equalsIgnoreCase("pos2")) {
             pos2 = player.getLocation();
             player.sendMessage("§aPosição 2 inserida com sucesso.");
-            return true;
-        } else if (args[0].equalsIgnoreCase("res")) {
-
-            player.sendMessage("resetado");
             return true;
         } else {
             player.sendMessage("§cComando inválido. Use /arena pos1 | pos2");
