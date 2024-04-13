@@ -1,7 +1,6 @@
 package com.daniel.blocksumo.command;
 
-import com.daniel.blocksumo.manager.MatchManager;
-import com.daniel.blocksumo.model.Arena;
+import com.daniel.blocksumo.Main;
 import com.daniel.blocksumo.model.Match;
 import com.daniel.blocksumo.world.WorldGenerator;
 import org.apache.commons.lang.StringUtils;
@@ -16,12 +15,10 @@ public class ArenaCommand implements CommandExecutor {
 
     private Location pos1;
     private Location pos2;
-
-    private final MatchManager manager;
+    private Location spawn;
     private final WorldGenerator generator;
 
-    public ArenaCommand(MatchManager manager, WorldGenerator generator) {
-        this.manager = manager;
+    public ArenaCommand(WorldGenerator generator) {
         this.generator = generator;
     }
 
@@ -31,9 +28,20 @@ public class ArenaCommand implements CommandExecutor {
             sender.sendMessage("§cPara executar esse comando você precisa ser um player");
             return true;
         }
+
         Player player = (Player) sender;
+
+        if (!player.hasPermission("blocksumo.admin")) {
+            player.sendMessage(Main.config().getString("Message.NoPermission").replace('&', '§'));
+            return true;
+        }
+
         if (args.length == 0) {
-            player.sendMessage("§cUse um comando válido");
+            String[] msg = {
+                    " ",
+                    " "
+            };
+            player.sendMessage(msg);
             return true;
         }
 
@@ -43,37 +51,44 @@ public class ArenaCommand implements CommandExecutor {
                 return true;
             }
 
-            if(pos1 != null && pos2 != null) {
-                if (pos1.getWorld().equals(pos2.getWorld())) {
-                    String name = StringUtils.join(args, " ", 1, args.length);
-                    Arena arena = new Arena(name, pos1.getWorld(), generator, pos1, pos2);
-                    player.sendMessage("§aArena §f" + name + " §adefinida com sucesso");
-                } else {
-                    player.sendMessage("§cAs posições foram setadas em mundos diferentes.");
-                }
-            } else {
-                player.sendMessage("§cDefina primeiramente as posições da arena.");
+            if (pos1 == null || pos2 == null || spawn == null) {
+                player.sendMessage("§cDefina primeiramente as posições e o spawn da arena.");
+                player.sendMessage("§cUse, /arena setspawn");
                 player.sendMessage("§cUse, /arena pos1 e /arena pos2");
+                return true;
             }
+
+            if (!pos1.getWorld().equals(pos2.getWorld())) {
+                player.sendMessage("§cAs posições foram setadas em mundos diferentes.");
+                return true;
+            }
+
+            if (!pos1.getWorld().equals(spawn.getWorld())) {
+                player.sendMessage("§cO spawn está em um mundo diferente das posições");
+                return true;
+            }
+
+            String name = StringUtils.join(args, " ", 1, args.length);
+            Match match = new Match(name, generator, spawn, pos1, pos2);
+            match.addPlayer(player);
+            player.sendMessage("§aA arena §f" + name + " §afoi definida com sucesso");
             return true;
 
+        } else if (args[0].equalsIgnoreCase("setspawn")) {
+            this.spawn = player.getLocation();
+            player.sendMessage("§aO spawn foi setado com sucesso");
+            return true;
         } else if (args[0].equalsIgnoreCase("pos1")) {
-            pos1 = player.getLocation();
-            player.sendMessage("§aPosição 1 inserida com sucesso.");
+            this.pos1 = player.getLocation();
+            player.sendMessage("§aA posição 1 foi definida com sucesso!");
             return true;
         } else if (args[0].equalsIgnoreCase("pos2")) {
-            pos2 = player.getLocation();
-            player.sendMessage("§aPosição 2 inserida com sucesso.");
-            return true;
-        } else if (args[0].equalsIgnoreCase("res")) {
-            generator.resetWorld(Bukkit.getWorld("void"));
-            player.sendMessage("§aResetado");
+            this.pos2 = player.getLocation();
+            player.sendMessage("§aA posição 2 foi definida com sucesso!");
             return true;
         } else {
-            player.sendMessage("§cComando inválido. Use /arena pos1 | pos2");
-            return true;
+            player.sendMessage("§cComando desconhecido.");
         }
-
-        //return false
+        return false;
     }
 }

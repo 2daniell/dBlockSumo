@@ -8,15 +8,19 @@ import java.util.List;
 
 public class MatchManager extends Cache<Match> {
 
-    public List<Match> findAllByState() {
-        return findList(e -> e.getState().equals(MatchState.WAITING));
+    public List<Match> findAllByState(MatchState state) {
+        return findList(e -> e.getState().equals(state));
     }
 
-    public boolean add(Match match) {
-        return super.add(match);
+    public Match findByName(String name) {
+        return find(e -> e.getName().equalsIgnoreCase(name));
+    }
+
+    public boolean create(Match match) {
+        return add(match);
     }
 
     public boolean remove(Match match) {
-        return remove(match);
+        return super.remove(match);
     }
 }

@@ -23,9 +23,10 @@ public class WorldGenerator {
 
     private int startX, startY, startZ;
     private int endX, endY, endZ;
+    private String arena;
     private final HashMap<Block, BlockState> blocks = new HashMap<>();
     private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
-    private final File datafolder = new File("plugins/BlockSumo/arenas");
+    private final File datafolder = new File("plugins/dBlockSumo/arenas");
 
     /*private static void save() {
         if (!(datafolder.exists())) {
@@ -74,7 +75,7 @@ public class WorldGenerator {
 
         // Crie um objeto JSON contendo os dados da arena e os blocos
         JsonObject jsonObject = new JsonObject();
-        jsonObject.addProperty("name", fileName); // Adicione o nome da arena, se necessário
+        jsonObject.addProperty("name", arena); // Adicione o nome da arena, se necessário
         jsonObject.add("arenaData", gson.toJsonTree(arenaData)); // Adicione os dados da arena
         jsonObject.add("blocks", gson.toJsonTree(blockDataList)); // Adicione os blocos
 
@@ -106,7 +107,7 @@ public class WorldGenerator {
         try (FileReader reader = new FileReader(arenaFile)) {
             JsonObject jsonObject = gson.fromJson(reader, JsonObject.class);
 
-            // Carregar informações da arena
+            this.arena = jsonObject.get("name").getAsString();
             JsonObject arenaDataObject = jsonObject.getAsJsonObject("arenaData");
             this.startX = arenaDataObject.get("startX").getAsInt();
             this.startY = arenaDataObject.get("startY").getAsInt();
@@ -154,7 +155,8 @@ public class WorldGenerator {
         save();
     }*/
 
-    public void saveWorld(World world, int startX, int startY, int startZ, int endX, int endY, int endZ) {
+    public void saveWorld(World world, String arena, int startX, int startY, int startZ, int endX, int endY, int endZ) {
+        this.arena = arena;
         this.startX = startX;
         this.startY = startY;
         this.startZ = startZ;
@@ -174,7 +176,7 @@ public class WorldGenerator {
             }
         }
         System.out.println("Total de blocos inseridos: " + blocks.size());
-        save(world.getName());
+        save(arena);
     }
 
     /*public void resetWorld(World world) {
@@ -219,7 +221,6 @@ public class WorldGenerator {
                     block.setType(originalState.getType());
                     block.setData(originalState.getData().getData());
                     originalState.update(true, false);
-                    iterator.remove();
                 }
             }
 
@@ -229,4 +230,8 @@ public class WorldGenerator {
         }
     }
 
+    public boolean hasBlocksForWorld(World world) {
+        return blocks.entrySet().stream()
+                .anyMatch(entry -> entry.getKey().getWorld().equals(world));
+    }
 }
