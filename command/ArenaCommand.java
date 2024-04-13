@@ -47,8 +47,6 @@ public class ArenaCommand implements CommandExecutor {
                 if (pos1.getWorld().equals(pos2.getWorld())) {
                     String name = StringUtils.join(args, " ", 1, args.length);
                     Arena arena = new Arena(name, pos1.getWorld(), generator, pos1, pos2);
-                    Match match = arena.match();
-                    manager.add(match);
                     player.sendMessage("§aArena §f" + name + " §adefinida com sucesso");
                 } else {
                     player.sendMessage("§cAs posições foram setadas em mundos diferentes.");
@@ -66,6 +64,10 @@ public class ArenaCommand implements CommandExecutor {
         } else if (args[0].equalsIgnoreCase("pos2")) {
             pos2 = player.getLocation();
             player.sendMessage("§aPosição 2 inserida com sucesso.");
+            return true;
+        } else if (args[0].equalsIgnoreCase("res")) {
+            generator.resetWorld(Bukkit.getWorld("void"));
+            player.sendMessage("§aResetado");
             return true;
         } else {
             player.sendMessage("§cComando inválido. Use /arena pos1 | pos2");

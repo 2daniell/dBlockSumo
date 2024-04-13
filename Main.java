@@ -17,6 +17,7 @@ public class Main extends JavaPlugin {
     @Override
     public void onEnable() {
         Arena.loadArenas(generator);
+        Arena.resetAll(generator);
         registerCommand();
         registerEvents();
     }

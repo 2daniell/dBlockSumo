@@ -1,9 +1,9 @@
 package com.daniel.blocksumo.world;
 
+import com.daniel.blocksumo.converter.ArenaData;
 import com.daniel.blocksumo.converter.BlockData;
 import com.google.common.reflect.TypeToken;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
+import com.google.gson.*;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -44,10 +44,21 @@ public class WorldGenerator {
             datafolder.mkdirs();
         }
         File file = new File(datafolder, fileName+".json");
+
+        // Crie um objeto ArenaData e preencha com as coordenadas da arena
+        ArenaData arenaData = new ArenaData();
+        arenaData.setStartX(startX);
+        arenaData.setStartY(startY);
+        arenaData.setStartZ(startZ);
+        arenaData.setEndX(endX);
+        arenaData.setEndY(endY);
+        arenaData.setEndZ(endZ);
+
         List<BlockData> blockDataList = new ArrayList<>();
         for (Map.Entry<Block, BlockState> entry : blocks.entrySet()) {
             Block block = entry.getKey();
             BlockState state = entry.getValue();
+
             Location location = block.getLocation();
             String worldName = location.getWorld().getName();
             int x = location.getBlockX();
@@ -55,12 +66,20 @@ public class WorldGenerator {
             int z = location.getBlockZ();
             String blockType = state.getType().toString();
             byte blockData = state.getData().getData();
+
+            // Crie um objeto BlockData apenas com os dados do bloco
             BlockData blockDataObj = new BlockData(worldName, x, y, z, blockType, blockData);
             blockDataList.add(blockDataObj);
         }
 
+        // Crie um objeto JSON contendo os dados da arena e os blocos
+        JsonObject jsonObject = new JsonObject();
+        jsonObject.addProperty("name", fileName); // Adicione o nome da arena, se necessário
+        jsonObject.add("arenaData", gson.toJsonTree(arenaData)); // Adicione os dados da arena
+        jsonObject.add("blocks", gson.toJsonTree(blockDataList)); // Adicione os blocos
+
         try (FileWriter writer = new FileWriter(file)) {
-            gson.toJson(blockDataList, writer);
+            gson.toJson(jsonObject, writer);
         } catch (IOException e) {
             System.out.println("Erro ao salvar arenas: " + e);
         }
@@ -85,16 +104,29 @@ public class WorldGenerator {
 
     private void loadArenaFromFile(File arenaFile) {
         try (FileReader reader = new FileReader(arenaFile)) {
-            Type listType = new TypeToken<List<BlockData>>() {}.getType();
-            List<BlockData> blockDataList = gson.fromJson(reader, listType);
+            JsonObject jsonObject = gson.fromJson(reader, JsonObject.class);
 
-            for (BlockData blockData : blockDataList) {
-                World world = Bukkit.getWorld(blockData.getWorldName());
+            // Carregar informações da arena
+            JsonObject arenaDataObject = jsonObject.getAsJsonObject("arenaData");
+            this.startX = arenaDataObject.get("startX").getAsInt();
+            this.startY = arenaDataObject.get("startY").getAsInt();
+            this.startZ = arenaDataObject.get("startZ").getAsInt();
+            this.endX = arenaDataObject.get("endX").getAsInt();
+            this.endY = arenaDataObject.get("endY").getAsInt();
+            this.endZ = arenaDataObject.get("endZ").getAsInt();
+
+            // Restaurar blocos da arena
+            JsonArray blocksArray = jsonObject.getAsJsonArray("blocks");
+            for (JsonElement element : blocksArray) {
+                JsonObject blockObject = element.getAsJsonObject();
+                World world = Bukkit.getWorld(blockObject.get("worldName").getAsString());
                 if (world != null) {
-                    Location location = new Location(world, blockData.getX(), blockData.getY(), blockData.getZ());
-                    Block block = location.getBlock();
-                    Material blockType = Material.valueOf(blockData.getBlockType());
-                    byte blockDataValue = blockData.getBlockData();
+                    int x = blockObject.get("x").getAsInt();
+                    int y = blockObject.get("y").getAsInt();
+                    int z = blockObject.get("z").getAsInt();
+                    Material blockType = Material.valueOf(blockObject.get("blockType").getAsString());
+                    byte blockDataValue = blockObject.get("blockData").getAsByte();
+                    Block block = world.getBlockAt(x, y, z);
                     block.setType(blockType);
                     block.setData(blockDataValue);
                     BlockState state = block.getState();
@@ -162,33 +194,39 @@ public class WorldGenerator {
     }*/
 
     public void resetWorld(World world) {
-        for (int x = startX; x <= endX; x++) {
-            for (int y = startY; y <= endY; y++) {
-                for (int z = startZ; z <= endZ; z++) {
-                    Block block = world.getBlockAt(x, y, z);
-                    block.setType(Material.AIR);
+        // Verificar se o mundo tem blocos a serem resetados
+        boolean worldHasBlocks = blocks.entrySet().stream()
+                .anyMatch(entry -> entry.getKey().getWorld().equals(world));
+
+        if (worldHasBlocks) {
+            // Remover os blocos marcados para resetar
+            for (int x = startX; x <= endX; x++) {
+                for (int y = startY; y <= endY; y++) {
+                    for (int z = startZ; z <= endZ; z++) {
+                        Block block = world.getBlockAt(x, y, z);
+                        block.setType(Material.AIR);
+                    }
                 }
             }
-        }
-        System.out.println("HashMap vazio: " + blocks.isEmpty());
-        System.out.println("Total de blocos no HashMap: " + blocks.size());
 
-        Iterator<Map.Entry<Block, BlockState>> iterator = blocks.entrySet().iterator();
-        while (iterator.hasNext()) {
-            Map.Entry<Block, BlockState> entry = iterator.next();
-            Block block = entry.getKey();
-            World blockWorld = block.getWorld();
-
-            if (blockWorld.equals(world)) {
-                BlockState originalState = entry.getValue();
-                block.setType(originalState.getType());
-                block.setData(originalState.getData().getData());
-                originalState.update(true, false);
-                iterator.remove();
+            // Restaurar os blocos do hashmap apenas para o mundo especificado
+            Iterator<Map.Entry<Block, BlockState>> iterator = blocks.entrySet().iterator();
+            while (iterator.hasNext()) {
+                Map.Entry<Block, BlockState> entry = iterator.next();
+                Block block = entry.getKey();
+                if (block.getWorld().equals(world)) {
+                    BlockState originalState = entry.getValue();
+                    block.setType(originalState.getType());
+                    block.setData(originalState.getData().getData());
+                    originalState.update(true, false);
+                    iterator.remove();
+                }
             }
-        }
 
-        System.out.println("HashMap limpo: " + blocks.isEmpty());
+            System.out.println("HashMap limpo: " + blocks.isEmpty());
+        } else {
+            System.out.println("Não há blocos para resetar no mundo especificado.");
+        }
     }
 
 }

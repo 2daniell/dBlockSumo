@@ -11,10 +11,10 @@ import java.util.Timer;
 @Getter
 public class Match extends Minigame {
 
-    private List<Player> players;
-    private Timer timer;
+    private transient List<Player> players;
+    private transient Timer timer;
     private Arena arena;
-    private MatchState state;
+    private transient MatchState state;
 
     public Match(Arena arena) {
         this.arena = arena;

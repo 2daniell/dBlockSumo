@@ -2,6 +2,7 @@ package com.daniel.blocksumo.model;
 
 import com.daniel.blocksumo.world.WorldGenerator;
 import lombok.Getter;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 
@@ -12,7 +13,7 @@ public class Arena {
 
     @Getter
     private World world;
-    private WorldGenerator generator;
+    private transient WorldGenerator generator;
     private int startX, startY, startZ;
     private int endX, endY, endZ;
 
@@ -30,10 +31,6 @@ public class Arena {
 
     }
 
-    public Match match() {
-        return new Match(this);
-    }
-
     public void save() {
         generator.saveWorld(world, startX, startY, startZ, endX, endY, endZ);
     }
@@ -44,5 +41,11 @@ public class Arena {
 
     public static void loadArenas(WorldGenerator generator) {
         generator.loadAllArenas();
+    }
+
+    public static void resetAll(WorldGenerator worldGenerator) {
+        for (World w : Bukkit.getWorlds()) {
+            worldGenerator.resetWorld(w);
+        }
     }
 }
