@@ -1,6 +1,7 @@
 package com.daniel.blocksumo.command;
 
 import com.daniel.blocksumo.Main;
+import com.daniel.blocksumo.manager.MatchManager;
 import com.daniel.blocksumo.model.Match;
 import com.daniel.blocksumo.world.WorldGenerator;
 import org.apache.commons.lang.StringUtils;
@@ -16,10 +17,10 @@ public class ArenaCommand implements CommandExecutor {
     private Location pos1;
     private Location pos2;
     private Location spawn;
-    private final WorldGenerator generator;
+    private final MatchManager manager;
 
-    public ArenaCommand(WorldGenerator generator) {
-        this.generator = generator;
+    public ArenaCommand(MatchManager manager) {
+        this.manager = manager;
     }
 
     @Override
@@ -69,8 +70,8 @@ public class ArenaCommand implements CommandExecutor {
             }
 
             String name = StringUtils.join(args, " ", 1, args.length);
-            Match match = new Match(name, generator, spawn, pos1, pos2);
-            match.addPlayer(player);
+            Match match = new Match(name, spawn, pos1, pos2);
+            manager.create(match);
             player.sendMessage("§aA arena §f" + name + " §afoi definida com sucesso");
             return true;
 

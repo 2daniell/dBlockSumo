@@ -5,11 +5,13 @@ import com.daniel.blocksumo.model.game.config.MinigameConfig;
 import com.daniel.blocksumo.objects.enums.MatchState;
 import com.daniel.blocksumo.world.WorldGenerator;
 import lombok.Getter;
+import lombok.SneakyThrows;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Timer;
@@ -31,8 +33,7 @@ public class Match extends MinigameConfig {
     private transient int startX, startY, startZ;
     private transient int endX, endY, endZ;
 
-    public Match(String name, WorldGenerator generator, Location spawn, Location pos1, Location pos2) {
-        this.generator = generator;
+    public Match(String name, Location spawn, Location pos1, Location pos2) {
         this.name = name;
         this.world = spawn.getWorld();
         this.spawn = spawn;
@@ -42,6 +43,7 @@ public class Match extends MinigameConfig {
         this.endX = Math.max(pos1.getBlockX(), pos2.getBlockX());
         this.endY = Math.max(pos1.getBlockY(), pos2.getBlockY());
         this.endZ = Math.max(pos1.getBlockZ(), pos2.getBlockZ());
+        this.generator = new WorldGenerator(startX, startY, startZ, endX, endY, endZ, name);
         this.players = new ArrayList<>();
         this.state = MatchState.WAITING;
         if(!generator.hasBlocksForWorld(world)) {
@@ -59,25 +61,26 @@ public class Match extends MinigameConfig {
     public void addPlayer(Player player) {
         if (state.equals(MatchState.WAITING) && players.size() < MAX_PLAYERS) {
             players.add(player);
+            player.teleport(spawn);
             players.forEach(e -> e.sendMessage(Main.config().getString("Message.JoinGame").replace('&', '§' ).replaceAll("%count%", String.valueOf(players.size())).replaceAll("%player%", player.getName()).replaceAll("%max%", String.valueOf(MAX_PLAYERS))));
         }
     }
 
     private void save() {
-        generator.saveWorld(world, name, startX, startY, startZ, endX, endY, endZ);
+        generator.saveBlocksInArena(world);
     }
 
     public void reset() {
         generator.resetWorld(world);
     }
 
-    public static void loadArenas(WorldGenerator generator) {
-        generator.loadAllArenas();
-    }
-
     public static void resetAll(WorldGenerator worldGenerator) {
         for (World w : Bukkit.getWorlds()) {
             worldGenerator.resetWorld(w);
         }
+    }
+
+    public int getPlayersSize() {
+        return players.size();
     }
 }

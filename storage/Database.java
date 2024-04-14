@@ -6,13 +6,14 @@ import org.bukkit.Bukkit;
 import java.io.File;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
 public class Database {
 
     private static Connection con;
 
-    public static void open() {
+    private static void open() {
         if (Main.config().getBoolean("MySQL.Enable")) {
 
             String username = Main.config().getString("MySQL.Username");
@@ -51,4 +52,6 @@ public class Database {
             Bukkit.getConsoleSender().sendMessage(Main.prefix + "§cA conexao com o §fSQLite §cfalhou!");
         }
     }
+
+
 }

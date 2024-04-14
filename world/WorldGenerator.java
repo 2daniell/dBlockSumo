@@ -1,52 +1,49 @@
 package com.daniel.blocksumo.world;
 
+import com.daniel.blocksumo.Main;
 import com.daniel.blocksumo.converter.ArenaData;
 import com.daniel.blocksumo.converter.BlockData;
-import com.google.common.reflect.TypeToken;
-import com.google.gson.*;
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.World;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import lombok.SneakyThrows;
+import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
-import org.w3c.dom.ls.LSOutput;
 
 import java.io.File;
-import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.lang.reflect.Type;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class WorldGenerator {
 
     private int startX, startY, startZ;
     private int endX, endY, endZ;
     private String arena;
-    private final HashMap<Block, BlockState> blocks = new HashMap<>();
-    private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
+    private HashMap<Block, BlockState> blocks = new HashMap<>();
     private final File datafolder = new File("plugins/dBlockSumo/arenas");
 
-    /*private static void save() {
-        if (!(datafolder.exists())) {
-            datafolder.mkdirs();
-        }
-
-        try(FileWriter writer = new FileWriter(file)) {
-            gson.toJson(blocks, writer);
-        } catch (IOException e) {
-            System.out.println("Erro ao salvar arenas: " + e);
-        }
-    }*/
+    public WorldGenerator(int startX, int startY, int startZ, int endX, int endY, int endZ, String arena) {
+        this.startX = startX;
+        this.startY = startY;
+        this.startZ = startZ;
+        this.endX = endX;
+        this.endY = endY;
+        this.endZ = endZ;
+        this.arena = arena;
+    }
 
     private void save(String fileName) {
         if (!datafolder.exists()) {
             datafolder.mkdirs();
         }
-        File file = new File(datafolder, fileName+".json");
+        File file = new File(datafolder, fileName + ".json");
+        Gson gson = new Gson();
 
-        // Crie um objeto ArenaData e preencha com as coordenadas da arena
         ArenaData arenaData = new ArenaData();
         arenaData.setStartX(startX);
         arenaData.setStartY(startY);
@@ -73,9 +70,8 @@ public class WorldGenerator {
             blockDataList.add(blockDataObj);
         }
 
-        // Crie um objeto JSON contendo os dados da arena e os blocos
         JsonObject jsonObject = new JsonObject();
-        jsonObject.addProperty("name", arena); // Adicione o nome da arena, se necessário
+        jsonObject.addProperty("name", fileName); // Adicione o nome da arena, se necessário
         jsonObject.add("arenaData", gson.toJsonTree(arenaData)); // Adicione os dados da arena
         jsonObject.add("blocks", gson.toJsonTree(blockDataList)); // Adicione os blocos
 
@@ -86,145 +82,98 @@ public class WorldGenerator {
         }
     }
 
-    public void loadAllArenas() {
-        if (!datafolder.exists() || !datafolder.isDirectory()) {
-            System.out.println("A pasta de arenas não existe ou não é um diretório.");
-            return;
-        }
+    public void saveBlocksInArena(World world) {
+        int chunkSize = 16;
+        int areaSize = (Math.abs(endX - startX) + 1) * (Math.abs(endZ - startZ) + 1);
 
-        File[] arenaFiles = datafolder.listFiles((dir, name) -> name.toLowerCase().endsWith(".json"));
-        if (arenaFiles == null) {
-            System.out.println("Nenhum arquivo JSON encontrado na pasta de arenas.");
-            return;
-        }
+        if (areaSize > chunkSize * chunkSize * 4) { // Se a área for maior que 4 chunks
+            int startChunkX = startX / chunkSize;
+            int startChunkZ = startZ / chunkSize;
+            int endChunkX = endX / chunkSize;
+            int endChunkZ = endZ / chunkSize;
 
-        for (File arenaFile : arenaFiles) {
-            loadArenaFromFile(arenaFile);
-        }
-    }
+            List<BlockState> blockStates = new ArrayList<>();
 
-    private void loadArenaFromFile(File arenaFile) {
-        try (FileReader reader = new FileReader(arenaFile)) {
-            JsonObject jsonObject = gson.fromJson(reader, JsonObject.class);
-
-            this.arena = jsonObject.get("name").getAsString();
-            JsonObject arenaDataObject = jsonObject.getAsJsonObject("arenaData");
-            this.startX = arenaDataObject.get("startX").getAsInt();
-            this.startY = arenaDataObject.get("startY").getAsInt();
-            this.startZ = arenaDataObject.get("startZ").getAsInt();
-            this.endX = arenaDataObject.get("endX").getAsInt();
-            this.endY = arenaDataObject.get("endY").getAsInt();
-            this.endZ = arenaDataObject.get("endZ").getAsInt();
-
-            // Restaurar blocos da arena
-            JsonArray blocksArray = jsonObject.getAsJsonArray("blocks");
-            for (JsonElement element : blocksArray) {
-                JsonObject blockObject = element.getAsJsonObject();
-                World world = Bukkit.getWorld(blockObject.get("worldName").getAsString());
-                if (world != null) {
-                    int x = blockObject.get("x").getAsInt();
-                    int y = blockObject.get("y").getAsInt();
-                    int z = blockObject.get("z").getAsInt();
-                    Material blockType = Material.valueOf(blockObject.get("blockType").getAsString());
-                    byte blockDataValue = blockObject.get("blockData").getAsByte();
-                    Block block = world.getBlockAt(x, y, z);
-                    block.setType(blockType);
-                    block.setData(blockDataValue);
-                    BlockState state = block.getState();
-                    blocks.put(block, state);
+            for (int chunkX = startChunkX; chunkX <= endChunkX; chunkX++) {
+                for (int chunkZ = startChunkZ; chunkZ <= endChunkZ; chunkZ++) {
+                    Chunk chunk = world.getChunkAt(chunkX, chunkZ);
+                    for (int x = 0; x < 16; x++) {
+                        for (int y = startY; y <= endY; y++) {
+                            for (int z = 0; z < 16; z++) {
+                                Block block = chunk.getBlock(x, y, z);
+                                if (!block.getType().equals(Material.AIR)) {
+                                    blockStates.add(block.getState());
+                                }
+                            }
+                        }
+                    }
                 }
             }
-        } catch (IOException e) {
-            System.out.println("Erro ao carregar a arena do arquivo " + arenaFile.getName() + ": " + e);
-        }
-    }
 
-
-    /*public static void saveWorld(World world, int startX, int startY, int startZ, int endX, int endY, int endZ) {
-        for (int x = startX; x <= endX; x++) {
-            for (int y = startY; y <= endY; y++) {
-                for (int z = startZ; z <= endZ; z++) {
-                    Block block = world.getBlockAt(x, y, z);
-                    BlockState state = block.getState();
-                    blocks.put(block, state);
-                    System.out.println("Bloco inserido em " + block.getLocation());
-                }
+            // Adicione todos os blocos coletados ao HashMap
+            for (BlockState state : blockStates) {
+                blocks.put(state.getBlock(), state);
             }
-        }
-        System.out.println("Total de blocos inseridos: " + blocks.size());
-        save();
-    }*/
-
-    public void saveWorld(World world, String arena, int startX, int startY, int startZ, int endX, int endY, int endZ) {
-        this.arena = arena;
-        this.startX = startX;
-        this.startY = startY;
-        this.startZ = startZ;
-        this.endX = endX;
-        this.endY = endY;
-        this.endZ = endZ;
-        for (int x = startX; x <= endX; x++) {
-            for (int y = startY; y <= endY; y++) {
-                for (int z = startZ; z <= endZ; z++) {
-                    Block block = world.getBlockAt(x, y, z);
-                    if (!block.getType().equals(Material.AIR) && block.getType() != null) {
-                        BlockState state = block.getState();
-                        blocks.put(block, state);
-                        System.out.println("Bloco inserido em " + block.getLocation());
+        } else { // Se a área for menor ou igual a 4 chunks
+            for (int x = Math.min(startX, endX); x <= Math.max(startX, endX); x++) {
+                for (int y = Math.min(startY, endY); y <= Math.max(startY, endY); y++) {
+                    for (int z = Math.min(startZ, endZ); z <= Math.max(startZ, endZ); z++) {
+                        Block block = world.getBlockAt(x, y, z);
+                        if (!block.getType().equals(Material.AIR)) {
+                            blocks.put(block, block.getState());
+                        }
                     }
                 }
             }
         }
-        System.out.println("Total de blocos inseridos: " + blocks.size());
         save(arena);
+        System.out.println(blocks.size() + " blocos");
     }
 
-    /*public void resetWorld(World world) {
-        System.out.println("HashMap vazio: " + blocks.isEmpty());
-        System.out.println("Total de blocos no HashMap: " + blocks.size());
 
-        for (Map.Entry<Block, BlockState> entry : blocks.entrySet()) {
-            Block block = entry.getKey();
-            BlockState originalState = entry.getValue();
-            block.setType(originalState.getType());
-            block.setData(originalState.getData().getData());
-            originalState.update(true, false);
-        }
-
-        blocks.clear();
-        System.out.println("HashMap limpo: " + blocks.isEmpty());
-    }*/
 
     public void resetWorld(World world) {
-        // Verificar se o mundo tem blocos a serem resetados
         boolean worldHasBlocks = blocks.entrySet().stream()
                 .anyMatch(entry -> entry.getKey().getWorld().equals(world));
 
         if (worldHasBlocks) {
-            // Remover os blocos marcados para resetar
-            for (int x = startX; x <= endX; x++) {
-                for (int y = startY; y <= endY; y++) {
-                    for (int z = startZ; z <= endZ; z++) {
-                        Block block = world.getBlockAt(x, y, z);
-                        block.setType(Material.AIR);
+            final int chunkSize = 16;
+            final int totalChunksX = (endX - startX + 1) / chunkSize;
+            final int totalChunksY = (endY - startY + 1) / chunkSize;
+            final int totalChunksZ = (endZ - startZ + 1) / chunkSize;
+
+            for (int chunkX = 0; chunkX < totalChunksX; chunkX++) {
+                for (int chunkY = 0; chunkY < totalChunksY; chunkY++) {
+                    for (int chunkZ = 0; chunkZ < totalChunksZ; chunkZ++) {
+                        final int startXChunk = startX + chunkX * chunkSize;
+                        final int startYChunk = startY + chunkY * chunkSize;
+                        final int startZChunk = startZ + chunkZ * chunkSize;
+                        final int endXChunk = Math.min(startXChunk + chunkSize - 1, endX);
+                        final int endYChunk = Math.min(startYChunk + chunkSize - 1, endY);
+                        final int endZChunk = Math.min(startZChunk + chunkSize - 1, endZ);
+
+                        Bukkit.getScheduler().runTask(Main.getPlugin(Main.class), () -> {
+                            for (int x = startXChunk; x <= endXChunk; x++) {
+                                for (int y = startYChunk; y <= endYChunk; y++) {
+                                    for (int z = startZChunk; z <= endZChunk; z++) {
+                                        Block block = world.getBlockAt(x, y, z);
+                                        BlockState originalState = blocks.get(block);
+                                        if (originalState != null) {
+                                            block.setType(originalState.getType());
+                                            block.setData(originalState.getData().getData());
+                                            originalState.update(true, false);
+                                        } else {
+                                            block.setType(Material.AIR);
+                                        }
+                                    }
+                                }
+                            }
+                        });
                     }
                 }
             }
 
-            // Restaurar os blocos do hashmap apenas para o mundo especificado
-            Iterator<Map.Entry<Block, BlockState>> iterator = blocks.entrySet().iterator();
-            while (iterator.hasNext()) {
-                Map.Entry<Block, BlockState> entry = iterator.next();
-                Block block = entry.getKey();
-                if (block.getWorld().equals(world)) {
-                    BlockState originalState = entry.getValue();
-                    block.setType(originalState.getType());
-                    block.setData(originalState.getData().getData());
-                    originalState.update(true, false);
-                }
-            }
-
-            System.out.println("HashMap limpo: " + blocks.isEmpty());
+            System.out.println("Reset do mundo completo.");
         } else {
             System.out.println("Não há blocos para resetar no mundo especificado.");
         }

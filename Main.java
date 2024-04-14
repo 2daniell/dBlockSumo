@@ -2,6 +2,8 @@ package com.daniel.blocksumo;
 
 import com.daniel.blocksumo.command.ArenaCommand;
 import com.daniel.blocksumo.command.BlockSumoCommand;
+import com.daniel.blocksumo.inventories.Matches;
+import com.daniel.blocksumo.manager.MatchManager;
 import com.daniel.blocksumo.manager.config.ConfigManager;
 import com.daniel.blocksumo.menu.event.InventoryClick;
 import com.daniel.blocksumo.model.Match;
@@ -14,15 +16,11 @@ import org.bukkit.plugin.java.JavaPlugin;
 public class Main extends JavaPlugin {
 
     public static String prefix = "§f[§6BlockSumo§f] §7-> ";
-
-    private final WorldGenerator generator = new WorldGenerator();
+    private final MatchManager manager = new MatchManager();
 
     @Override
     public void onEnable() {
         ConfigManager.setupConfig();
-        Database.open();
-        Match.loadArenas(generator);
-        Match.resetAll(generator);
         registerCommand();
         registerEvents();
     }
@@ -37,7 +35,8 @@ public class Main extends JavaPlugin {
     }
 
     public void registerCommand() {
-        getCommand("arena").setExecutor(new ArenaCommand(generator));
-        getCommand("blocksumo").setExecutor(new BlockSumoCommand());
+        getCommand("arena").setExecutor(new ArenaCommand(manager));
+        getCommand("blocksumo").setExecutor(new BlockSumoCommand(manager));
     }
+
 }
