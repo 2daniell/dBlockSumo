@@ -4,16 +4,13 @@ import com.daniel.blocksumo.Main;
 import org.bukkit.Bukkit;
 
 import java.io.File;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
+import java.sql.*;
 
 public class Database {
 
     private static Connection con;
 
-    private static void open() {
+    public static Connection open() {
         if (Main.config().getBoolean("MySQL.Enable")) {
 
             String username = Main.config().getString("MySQL.Username");
@@ -25,9 +22,8 @@ public class Database {
 
             try {
                 con = DriverManager.getConnection(url, username, password);
-                Bukkit.getConsoleSender().sendMessage(Main.prefix + "§aA conexao com o §fMySQL §aexecutada!");
+                createTable(con);
             } catch (SQLException e) {
-                e.printStackTrace();
                 Bukkit.getConsoleSender().sendMessage(Main.prefix + "§cA conexao com o §fMySQL §cfalhou!");
                 Bukkit.getConsoleSender().sendMessage(Main.prefix + "§cAlterando para o §fSQLite");
                 openSQLite();
@@ -35,8 +31,38 @@ public class Database {
         } else {
             openSQLite();
         }
+
+        return con;
     }
 
+    private static void createTable(Connection con) {
+        if (con == null) return;
+        final String sqlMatches = "CREATE TABLE IF NOT EXISTS matches (" +
+                "id VARCHAR(36) PRIMARY KEY," +
+                "name VARCHAR(255)," +
+                "world VARCHAR(255)," +
+                "spawn_waiting VARCHAR(255)," +
+                "spawn_area VARCHAR(255)" +
+                ")";
+
+        final String sqlSpawns = "CREATE TABLE IF NOT EXISTS spawns (" +
+                "    id INT AUTO_INCREMENT PRIMARY KEY," +
+                "    match_id VARCHAR(36)," +
+                "    location VARCHAR(255)," +
+                "    FOREIGN KEY (match_id) REFERENCES matches(id)" +
+                ")";
+
+        try {
+            PreparedStatement stm = con.prepareStatement(sqlMatches);
+            stm.executeUpdate();
+            PreparedStatement st = con.prepareStatement(sqlSpawns);
+            st.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    //fazer jaja
     private static void openSQLite() {
         File datafolder = new File("plugins/dBlockSumo/databases");
         if (!datafolder.exists()) datafolder.mkdirs();
@@ -46,12 +72,12 @@ public class Database {
         try {
             Class.forName("org.sqlite.JDBC");
             con = DriverManager.getConnection(url);
-            Bukkit.getConsoleSender().sendMessage(Main.prefix + "§aA conexao com o §fSQLite §aexecutada!");
+            createTable(con);
         } catch (Exception e) {
             e.printStackTrace();
             Bukkit.getConsoleSender().sendMessage(Main.prefix + "§cA conexao com o §fSQLite §cfalhou!");
+            Main.getPlugin(Main.class).getPluginLoader().disablePlugin(Main.getPlugin(Main.class));
         }
     }
-
 
 }

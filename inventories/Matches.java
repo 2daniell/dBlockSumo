@@ -5,12 +5,10 @@ import com.daniel.blocksumo.manager.MatchManager;
 import com.daniel.blocksumo.menu.Menu;
 import com.daniel.blocksumo.model.Match;
 import com.daniel.blocksumo.model.game.config.MinigameConfig;
-import com.daniel.blocksumo.objects.enums.MatchState;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.ItemStack;
 
 import java.util.Comparator;
 import java.util.List;
@@ -29,7 +27,7 @@ public class Matches extends Menu {
 
     @Override
     public void onClick(InventoryClickEvent e) {
-        List<Match> matches = manager.findAllByState(MatchState.WAITING).stream().sorted(Comparator
+        List<Match> matches = manager.findMatchReady().stream().sorted(Comparator
                 .comparing(Match::getPlayersSize).reversed()).collect(Collectors.toList());
 
         if (!e.getCurrentItem().hasItemMeta()) return;
@@ -37,7 +35,7 @@ public class Matches extends Menu {
         if (e.getCurrentItem().getItemMeta().getDisplayName().equalsIgnoreCase("§aJogar")) {
             Match match = matches.getFirst();
             if (match.getPlayersSize() >= MinigameConfig.MAX_PLAYERS) return;
-            match.addPlayer(player);
+            match.joinPlayer(player);
             player.closeInventory();
         }
 
@@ -45,17 +43,16 @@ public class Matches extends Menu {
 
     @Override
     public void setItens(Inventory inventory) {
-        List<Match> matches = manager.findAllByState(MatchState.WAITING);
+        List<Match> matches = manager.findMatchReady();
 
         if(player.hasPermission("blocksumo.vip") || player.hasPermission("blocksumo.admin")) {
 
             inventory.setItem(12, new ItemBuilder(351, (matches.isEmpty()) ? (short) 8 : 10)
-                    .setDisplayName((matches.isEmpty()) ? "§aJogar" : "§7Não encontramos nenhuma partida.").build());
+                    .setDisplayName((matches.isEmpty()) ? "§7Não encontramos nenhuma partida." : "§aJogar").build());
 
             inventory.setItem(14, new ItemBuilder(Material.BOOK).setDisplayName("§aPartidas").build());
 
             inventory.setItem(31, new ItemBuilder(Material.BARRIER).setDisplayName("§cSair").build());
-
         } else {
 
             inventory.setItem(13, new ItemBuilder(351, (matches.isEmpty()) ? (short) 8 : 10)
