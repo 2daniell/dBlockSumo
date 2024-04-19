@@ -41,15 +41,15 @@ public class Database {
                 "id VARCHAR(36) PRIMARY KEY," +
                 "name VARCHAR(255)," +
                 "world VARCHAR(255)," +
-                "spawn_waiting VARCHAR(255)," +
-                "spawn_area VARCHAR(255)" +
+                "spawn_waiting TEXT," +
+                "spawn_area TEXT," +
+                "gold_block TEXT" +
                 ")";
 
         final String sqlSpawns = "CREATE TABLE IF NOT EXISTS spawns (" +
-                "    id INT AUTO_INCREMENT PRIMARY KEY," +
-                "    match_id VARCHAR(36)," +
-                "    location VARCHAR(255)," +
-                "    FOREIGN KEY (match_id) REFERENCES matches(id)" +
+                "match_id VARCHAR(36) PRIMARY KEY," +
+                "location TEXT," +
+                "FOREIGN KEY (match_id) REFERENCES matches(id)" +
                 ")";
 
         try {

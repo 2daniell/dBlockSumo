@@ -3,6 +3,7 @@ package com.daniel.blocksumo.objects;
 import com.daniel.blocksumo.api.Utils;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -16,6 +17,7 @@ import java.util.UUID;
 
 @Getter
 @AllArgsConstructor
+@NoArgsConstructor
 @Setter
 public class PlayerWaitingArea {
 
@@ -24,11 +26,20 @@ public class PlayerWaitingArea {
     private Location pos2;
 
     public void setToAir() {
-        for (int x = pos1.getBlockX(); x <= pos2.getBlockX(); x++) {
-            for (int y = pos1.getBlockY(); y <= pos2.getBlockY(); y++) {
-                for (int z = pos1.getBlockZ(); z <= pos2.getBlockZ(); z++) {
+        int minX = Math.min(pos1.getBlockX(), pos2.getBlockX());
+        int minY = Math.min(pos1.getBlockY(), pos2.getBlockY());
+        int minZ = Math.min(pos1.getBlockZ(), pos2.getBlockZ());
+        int maxX = Math.max(pos1.getBlockX(), pos2.getBlockX());
+        int maxY = Math.max(pos1.getBlockY(), pos2.getBlockY());
+        int maxZ = Math.max(pos1.getBlockZ(), pos2.getBlockZ());
+
+        for (int x = minX; x <= maxX; x++) {
+            for (int y = minY; y <= maxY; y++) {
+                for (int z = minZ; z <= maxZ; z++) {
                     Block block = world.getBlockAt(x, y, z);
-                    block.setType(Material.AIR);
+                    if (!block.getType().equals(Material.AIR)) {
+                        block.setType(Material.AIR);
+                    }
                 }
             }
         }
@@ -40,7 +51,6 @@ public class PlayerWaitingArea {
         return playerWaitingArea.getWorld().getUID() + "/" + serializedLocation1 + "/" + serializedLocation2;
     }
 
-    // Desserializa uma string para um objeto PlayerWaitingArea
     public static PlayerWaitingArea deserialize(String str) {
         System.out.println(str);
         String[] parts = str.split("/");

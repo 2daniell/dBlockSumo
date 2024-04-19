@@ -30,17 +30,17 @@ public class WorldGenerator {
         this.arena = arena;
     }
 
-    public WorldGenerator(int startX, int startY, int startZ, int endX, int endY, int endZ, String arena) {
+    public WorldGenerator(Location pos1, Location pos2, String arena) {
         this(arena);
-        this.startX = startX;
-        this.startY = startY;
-        this.startZ = startZ;
-        this.endX = endX;
-        this.endY = endY;
-        this.endZ = endZ;
+        startX = Math.min(pos1.getBlockX(), pos2.getBlockX());
+        startY = Math.min(pos1.getBlockY(), pos2.getBlockY());
+        startZ = Math.min(pos1.getBlockZ(), pos2.getBlockZ());
+        endX = Math.max(pos1.getBlockX(), pos2.getBlockX());
+        endY = Math.max(pos1.getBlockY(), pos2.getBlockY());
+        endZ = Math.max(pos1.getBlockZ(), pos2.getBlockZ());
     }
 
-    private void save() {
+    private void save() { //salva em json
         if (!datafolder.exists()) {
             datafolder.mkdirs();
         }
@@ -68,15 +68,14 @@ public class WorldGenerator {
             String blockType = state.getType().toString();
             byte blockData = state.getData().getData();
 
-            // Crie um objeto BlockData apenas com os dados do bloco
             BlockData blockDataObj = new BlockData(worldName, x, y, z, blockType, blockData);
             blockDataList.add(blockDataObj);
         }
 
         JsonObject jsonObject = new JsonObject();
-        jsonObject.addProperty("name", arena); // Adicione o nome da arena, se necessário
-        jsonObject.add("arenaData", gson.toJsonTree(arenaData)); // Adicione os dados da arena
-        jsonObject.add("blocks", gson.toJsonTree(blockDataList)); // Adicione os blocos
+        jsonObject.addProperty("name", arena);
+        jsonObject.add("arenaData", gson.toJsonTree(arenaData));
+        jsonObject.add("blocks", gson.toJsonTree(blockDataList));
 
         try (FileWriter writer = new FileWriter(file)) {
             gson.toJson(jsonObject, writer);
@@ -85,7 +84,11 @@ public class WorldGenerator {
         }
     }
 
-    public void loadArena() {
+    public boolean isOriginalBlock(Block block) {
+        return blocks.containsKey(block);
+    }
+
+    public void loadArena() { //carrega todos os json pro hashmap
         File file = new File(datafolder, arena + ".json");
 
         if (file.exists()) {
@@ -94,12 +97,10 @@ public class WorldGenerator {
             try (FileReader reader = new FileReader(file)) {
                 JsonObject jsonObject = gson.fromJson(reader, JsonObject.class);
 
-                // Verifique se o objeto JSON contém arenaData e blocks
                 if (jsonObject.has("arenaData") && jsonObject.has("blocks")) {
                     JsonObject arenaDataJson = jsonObject.getAsJsonObject("arenaData");
                     JsonArray blocksJson = jsonObject.getAsJsonArray("blocks");
 
-                    // Atualize os atributos da classe com base nos dados do JSON
                      startX = arenaDataJson.get("startX").getAsInt();
                      startY = arenaDataJson.get("startY").getAsInt();
                      startZ = arenaDataJson.get("startZ").getAsInt();
@@ -107,10 +108,8 @@ public class WorldGenerator {
                      endY = arenaDataJson.get("endY").getAsInt();
                      endZ = arenaDataJson.get("endZ").getAsInt();
 
-                    // Processar os dados dos blocos, se necessário
                     for (JsonElement blockElement : blocksJson) {
                         BlockData blockData = gson.fromJson(blockElement, BlockData.class);
-                        // Criar instância de Block e BlockState com os dados do bloco
                         World world = Bukkit.getWorld(blockData.getWorldName());
                         Location location = new Location(world, blockData.getX(), blockData.getY(), blockData.getZ());
                         Block block = location.getBlock();
@@ -181,7 +180,7 @@ public class WorldGenerator {
         int chunkSize = 16;
         int areaSize = (Math.abs(endX - startX) + 1) * (Math.abs(endZ - startZ) + 1);
 
-        if (areaSize > chunkSize * chunkSize * 4) { // Se a área for maior que 4 chunks
+        if (areaSize > chunkSize * chunkSize * 4) {
             int startChunkX = startX / chunkSize;
             int startChunkZ = startZ / chunkSize;
             int endChunkX = endX / chunkSize;
@@ -205,11 +204,11 @@ public class WorldGenerator {
                 }
             }
 
-            // Adicione todos os blocos coletados ao HashMap
+
             for (BlockState state : blockStates) {
                 blocks.put(state.getBlock(), state);
             }
-        } else { // Se a área for menor ou igual a 4 chunks
+        } else {
             for (int x = Math.min(startX, endX); x <= Math.max(startX, endX); x++) {
                 for (int y = Math.min(startY, endY); y <= Math.max(startY, endY); y++) {
                     for (int z = Math.min(startZ, endZ); z <= Math.max(startZ, endZ); z++) {
@@ -300,7 +299,7 @@ public class WorldGenerator {
                         }
                     }
                 }
-            } else { // Se a área for maior ou igual a 3 chunks em alguma dimensão
+            } else {
                 for (int chunkX = 0; chunkX < totalChunksX; chunkX++) {
                     for (int chunkY = 0; chunkY < totalChunksY; chunkY++) {
                         for (int chunkZ = 0; chunkZ < totalChunksZ; chunkZ++) {
@@ -338,7 +337,6 @@ public class WorldGenerator {
             System.out.println("Não há blocos para resetar no mundo especificado.");
         }
     }
-
 
     public boolean hasBlocksForWorld(World world) {
         return blocks.entrySet().stream()

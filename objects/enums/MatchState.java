@@ -2,7 +2,7 @@ package com.daniel.blocksumo.objects.enums;
 
 public enum MatchState {
 
-    WAITING("Waiting"), STARTED("Started"), RELOADING("Reloading");
+    WAITING("Waiting"), STARTING("Starting"),STARTED("Started"), RELOADING("Reloading");
 
     private String name;
 

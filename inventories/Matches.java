@@ -6,9 +6,12 @@ import com.daniel.blocksumo.menu.Menu;
 import com.daniel.blocksumo.model.Match;
 import com.daniel.blocksumo.model.game.config.MinigameConfig;
 import org.bukkit.Material;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemFlag;
+import org.bukkit.inventory.ItemStack;
 
 import java.util.Comparator;
 import java.util.List;
@@ -37,7 +40,7 @@ public class Matches extends Menu {
             if (match.getPlayersSize() >= MinigameConfig.MAX_PLAYERS) return;
             match.joinPlayer(player);
             player.closeInventory();
-        }
+        } else if (e.getCurrentItem().getItemMeta().getDisplayName().equalsIgnoreCase("§cSair")) player.closeInventory();
 
     }
 
@@ -45,20 +48,30 @@ public class Matches extends Menu {
     public void setItens(Inventory inventory) {
         List<Match> matches = manager.findMatchReady();
 
-        if(player.hasPermission("blocksumo.vip") || player.hasPermission("blocksumo.admin")) {
+        inventory.setItem(0, new ItemBuilder(Material.STAINED_GLASS_PANE, (short) 2).setDisplayName(" ").build());
+        inventory.setItem(1, new ItemBuilder(Material.STAINED_GLASS_PANE, (short) 2).setDisplayName(" ").build());
+        inventory.setItem(9, new ItemBuilder(Material.STAINED_GLASS_PANE, (short) 2).setDisplayName(" ").build());
 
-            inventory.setItem(12, new ItemBuilder(351, (matches.isEmpty()) ? (short) 8 : 10)
-                    .setDisplayName((matches.isEmpty()) ? "§7Não encontramos nenhuma partida." : "§aJogar").build());
+        inventory.setItem(17, new ItemBuilder(Material.STAINED_GLASS_PANE, (short) 2).setDisplayName(" ").build());
+        inventory.setItem(8, new ItemBuilder(Material.STAINED_GLASS_PANE, (short) 2).setDisplayName(" ").build());
+        inventory.setItem(7, new ItemBuilder(Material.STAINED_GLASS_PANE, (short) 2).setDisplayName(" ").build());
 
-            inventory.setItem(14, new ItemBuilder(Material.BOOK).setDisplayName("§aPartidas").build());
+        inventory.setItem(28, new ItemBuilder(Material.STAINED_GLASS_PANE, (short) 2).setDisplayName(" ").build());
+        inventory.setItem(27, new ItemBuilder(Material.STAINED_GLASS_PANE, (short) 2).setDisplayName(" ").build());
+        inventory.setItem(18, new ItemBuilder(Material.STAINED_GLASS_PANE, (short) 2).setDisplayName(" ").build());
 
-            inventory.setItem(31, new ItemBuilder(Material.BARRIER).setDisplayName("§cSair").build());
-        } else {
+        inventory.setItem(26, new ItemBuilder(Material.STAINED_GLASS_PANE, (short) 2).setDisplayName(" ").build());
+        inventory.setItem(34, new ItemBuilder(Material.STAINED_GLASS_PANE, (short) 2).setDisplayName(" ").build());
+        inventory.setItem(35, new ItemBuilder(Material.STAINED_GLASS_PANE, (short) 2).setDisplayName(" ").build());
 
-            inventory.setItem(13, new ItemBuilder(351, (matches.isEmpty()) ? (short) 8 : 10)
-                    .setDisplayName((matches.isEmpty()) ? "§7Não encontramos nenhuma partida." : "§aJogar").build());
+        inventory.setItem(12, new ItemBuilder(Material.WOOL).addEnchant(Enchantment.KNOCKBACK, 1).addItemFlag(ItemFlag.HIDE_ENCHANTS)
+                .setDisplayName((matches.isEmpty()) ? "§7Não encontramos nenhuma partida." : "§aJogar").build());
 
-            inventory.setItem(31, new ItemBuilder(Material.BARRIER).setDisplayName("§cSair").build());
-        }
+        inventory.setItem(14, new ItemBuilder(Material.BOOK).setDisplayName("§aPartidas").addEnchant(Enchantment.KNOCKBACK, 1)
+                .addItemFlag(ItemFlag.HIDE_ENCHANTS).build());
+
+        inventory.setItem(31, new ItemBuilder(Material.BARRIER).setDisplayName("§cSair").build());
+
+        inventory.setItem(31, new ItemBuilder(Material.BARRIER).setDisplayName("§cSair").build());
     }
 }

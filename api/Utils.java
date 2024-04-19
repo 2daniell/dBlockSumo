@@ -13,12 +13,13 @@ public class Utils {
     }
 
     public static Location getDeserializedLocation(String s) {
-        String [] parts = s.split(";");
-        double x = Double.parseDouble(parts[0]);
-        double y = Double.parseDouble(parts[1]);
-        double z = Double.parseDouble(parts[2]);
+        String[] parts = s.split(";");
+        int x = (int) Double.parseDouble(parts[0]);
+        int y = (int) Double.parseDouble(parts[1]);
+        int z = (int) Double.parseDouble(parts[2]);
         UUID u = UUID.fromString(parts[3]);
         World w = Bukkit.getServer().getWorld(u);
         return new Location(w, x, y, z);
     }
+
 }
