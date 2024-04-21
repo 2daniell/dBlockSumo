@@ -22,4 +22,20 @@ public class Utils {
         return new Location(w, x, y, z);
     }
 
+    public static boolean compare(Location loc1, Location loc2) {
+        int loc1X = (int) loc1.getX();
+        int loc1Y = (int) loc1.getY();
+        int loc1Z = (int) loc1.getZ();
+
+        int loc2X = (int) loc2.getX();
+        int loc2Y = (int) loc2.getY();
+        int loc2Z = (int) loc2.getZ();
+
+        return (loc1X == loc2X && loc1Y == loc2Y && loc1Z == loc2Z);
+    }
+
 }
+
+
+
+

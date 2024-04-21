@@ -3,7 +3,9 @@ package com.daniel.blocksumo;
 import com.daniel.blocksumo.api.enums.Version;
 import com.daniel.blocksumo.command.ArenaCommand;
 import com.daniel.blocksumo.command.BlockSumoCommand;
+import com.daniel.blocksumo.events.ItensEvents;
 import com.daniel.blocksumo.events.MinigameEvents;
+import com.daniel.blocksumo.events.SpectatorEvents;
 import com.daniel.blocksumo.manager.MatchManager;
 import com.daniel.blocksumo.manager.config.ConfigManager;
 import com.daniel.blocksumo.menu.event.InventoryClick;
@@ -36,6 +38,7 @@ public class Main extends JavaPlugin {
     public void onEnable() {
         Database.open();
         registerClass();
+        System.out.println("IP: " + getServer().getIp());
         registerCommand();
         registerEvents();
         loadLobby();
@@ -63,6 +66,8 @@ public class Main extends JavaPlugin {
     public void registerEvents() {
         Bukkit.getPluginManager().registerEvents(new InventoryClick(), this);
         Bukkit.getPluginManager().registerEvents(new MinigameEvents(manager), this);
+        Bukkit.getPluginManager().registerEvents(new ItensEvents(manager), this);
+        Bukkit.getPluginManager().registerEvents(new SpectatorEvents(manager), this);
     }
 
     public void registerCommand() {

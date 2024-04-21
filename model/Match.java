@@ -1,6 +1,7 @@
 package com.daniel.blocksumo.model;
 
 import com.daniel.blocksumo.Main;
+import com.daniel.blocksumo.api.ActionBarAPI;
 import com.daniel.blocksumo.api.ItemBuilder;
 import com.daniel.blocksumo.api.TitleAPI;
 import com.daniel.blocksumo.model.game.config.MinigameConfig;
@@ -11,14 +12,21 @@ import com.daniel.blocksumo.objects.enums.MatchState;
 import com.daniel.blocksumo.world.WorldGenerator;
 import lombok.Getter;
 import lombok.Setter;
-import net.minecraft.server.v1_8_R3.Packet;
-import net.minecraft.server.v1_8_R3.PacketPlayOutBlockBreakAnimation;
 import org.bukkit.*;
 import org.bukkit.block.Block;
+import org.bukkit.enchantments.Enchantment;
+import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.LeatherArmorMeta;
+import org.bukkit.inventory.meta.PotionMeta;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scoreboard.DisplaySlot;
+import org.bukkit.scoreboard.Objective;
+import org.bukkit.scoreboard.Score;
+import org.bukkit.scoreboard.Scoreboard;
 
 import java.io.Serializable;
 import java.util.*;
@@ -36,11 +44,12 @@ public class Match extends MinigameConfig {
     private transient PlayerWaitingArea playerWaitingArea;
     private transient List<GamePlayer> players;
     private transient final List<GamePlayerColor> avaliables = new ArrayList<>(Arrays.asList(GamePlayerColor.values()));
-    private transient List<UUID> spectator;
     private transient List<UUID> waiting;
-    private transient BukkitRunnable runnable;
+    private transient List<UUID> spectators;
     private transient MatchState state;
     private transient WorldGenerator generator;
+
+    private final Map<Player, Scoreboard> scoreboards = new HashMap<>();
 
 
     public Match(String name, Location spawnWaiting, PlayerWaitingArea area) {
@@ -48,7 +57,7 @@ public class Match extends MinigameConfig {
         this.spawnWaiting = spawnWaiting;
         this.state = MatchState.WAITING;
         this.players = new ArrayList<>();
-        this.spectator = new ArrayList<>();
+        this.spectators = new ArrayList<>();
         this.waiting = new ArrayList<>();
         this.playerWaitingArea = area;
         this.generator = new WorldGenerator(name);
@@ -59,8 +68,8 @@ public class Match extends MinigameConfig {
     public Match(String name, Location arenaPos1, Location arenaPos2) {
         this.name = name;
         this.players = new ArrayList<>();
-        this.spectator = new ArrayList<>();
         this.waiting = new ArrayList<>();
+        this.spectators = new ArrayList<>();
         this.matchSpawns = new MatchSpawns();
         this.playerWaitingArea = new PlayerWaitingArea();
         this.state = MatchState.WAITING;
@@ -75,12 +84,16 @@ public class Match extends MinigameConfig {
     public void run() {
         if (state.equals(MatchState.WAITING) && waiting.size() >= MIN_PLAYERS) {
 
-            runnable = new BukkitRunnable() {
+            new BukkitRunnable() {
 
                 int countdown = START_MIN_PLAYERS_COOLDOWN;
 
                 @Override
                 public void run() {
+                    if (waiting.isEmpty() || waiting.size() < MIN_PLAYERS) {
+                        cancel();
+                        return;
+                    }
                     if (waiting.size() == MAX_PLAYERS) countdown = START_MAX_PLAYERS_COOLDOWN;
 
                     if (countdown <= 5) {
@@ -130,8 +143,7 @@ public class Match extends MinigameConfig {
                     countdown--;
 
                 }
-            };
-            runnable.runTaskTimer(Main.getPlugin(Main.class), 0, 20);
+            }.runTaskTimer(Main.getPlugin(Main.class), 0, 20);
 
         }
     }
@@ -143,7 +155,7 @@ public class Match extends MinigameConfig {
                 for(int z = goldBlock.getBlockZ() - radius; z <= goldBlock.getBlockZ() + radius; z++) {
                     Block block = goldBlock.getWorld().getBlockAt(x, y, z);
                     if (!generator.isOriginalBlock(block) && !block.getLocation().equals(goldBlock)) {
-                        if (block.getType() != Material.TNT) {
+                        if (block.getType() == Material.WOOL) {
                             blocks.add(block.getLocation());
                         }
                     }
@@ -153,6 +165,65 @@ public class Match extends MinigameConfig {
         return blocks;
     }
 
+    public void startMatch() {
+        if (state == MatchState.STARTED) {
+            List<ItemStack> dropCenter = setupGoldBlockDropItens();
+            List<ItemStack> giveToPlayers = setupPlayerRandomItens();
+
+            new BukkitRunnable() {
+
+            int dropCenterCountdown = 60;
+            int givePlayerCountdown = 30;
+                @Override
+                public void run() {
+                    if (players.isEmpty()) {
+                        cancel();
+                        return;
+                    }
+
+                    StringBuilder builder = new StringBuilder();
+
+                    for (int i = 0; i < players.size(); i++) {
+                        GamePlayer player = players.get(i);
+                        builder.append(player.getDisplay());
+
+                        if (i < players.size() - 1) {
+                            builder.append(" §7| ");
+                        }
+                    }
+
+                    players.forEach(e -> {
+                        if (!e.isDead()) {
+                            ActionBarAPI.sendActionBar(e.getPlayer(), builder.toString());
+                        }
+                    });
+
+                    dropCenterCountdown--;
+                    if (dropCenterCountdown <= 0) {
+                        ItemStack drop = dropCenter.get(new Random().nextInt(dropCenter.size()));
+                        goldBlock.getWorld().dropItem(goldBlock, drop);
+                        dropCenterCountdown = 60;
+                    }
+
+                    givePlayerCountdown--;
+                    if (givePlayerCountdown <= 0) {
+                        for (GamePlayer player : players) {
+                            if (!player.isDead()) {
+                                ItemStack itemToGive = giveToPlayers.get(new Random().nextInt(giveToPlayers.size()));
+                                player.getPlayer().getInventory().addItem(itemToGive);
+                            }
+                        }
+                        givePlayerCountdown = 30;
+                    }
+                }
+            }.runTaskTimer(Main.getPlugin(Main.class), 0, 20);
+        }
+    }
+
+
+    public void stopMatch() {
+
+    }
 
     public void joinPlayer(Player player) {
         if (state.equals(MatchState.WAITING) && players.size() < MAX_PLAYERS) {
@@ -170,13 +241,14 @@ public class Match extends MinigameConfig {
         if (gamePlayer.getLifes() > 1) {
             double lifes = gamePlayer.getLifes()-1;
             gamePlayer.setLifes(lifes);
+            gamePlayer.setDead(true);
             Player player = gamePlayer.getPlayer();
             players.forEach(gm -> {
                 Player target = gm.getPlayer();
                 target.hidePlayer(player);
             });
             player.teleport(spawnWaiting);
-            player.setAllowFlight(true);
+            player.setGameMode(GameMode.SPECTATOR);
             player.setFlying(true);
             new BukkitRunnable() {
 
@@ -195,11 +267,32 @@ public class Match extends MinigameConfig {
                 }
             }.runTaskTimer(Main.getPlugin(Main.class), 0, 20);
         } else {
-            System.out.println("MORREU OTARO");
+            setSpec(gamePlayer);
         }
     }
 
+    private void setSpec(GamePlayer gamePlayer) {
+        players.remove(gamePlayer);
+        Player player = gamePlayer.getPlayer();
+        player.setMaxHealth(20);
+        player.setHealth(20);
+        player.setGameMode(GameMode.SURVIVAL);
+        player.setAllowFlight(true);
+        player.setFlying(true);
+        player.getInventory().clear();
+        player.spigot().setCollidesWithEntities(false);
+
+        players.forEach(e -> {
+            Player p = e.getPlayer();
+            p.hidePlayer(player);
+        });
+
+        spectators.add(player.getUniqueId());
+        player.teleport(spawnWaiting);
+    }
+
     private void respawn(GamePlayer gamePlayer) {
+        gamePlayer.setDead(false);
         Player player = gamePlayer.getPlayer();
         Location location = matchSpawns.getLocations().get(new Random().nextInt(matchSpawns.getLocations().size()-1));
         player.teleport(location);
@@ -207,9 +300,15 @@ public class Match extends MinigameConfig {
         player.setMaxHealth(gamePlayer.getLifes()*2);
         player.setHealth(gamePlayer.getLifes()*2);
 
+
         player.setFlying(false);
+        player.setGameMode(GameMode.SURVIVAL);
         player.setAllowFlight(false);
         setupItens(player);
+        players.forEach(gm -> {
+            Player target = gm.getPlayer();
+            target.showPlayer(player);
+        });
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -219,45 +318,14 @@ public class Match extends MinigameConfig {
     }
 
     public void quitPlayer(Player player) {
-        switch (state){
-            case state.WAITING -> {
-                if (!waiting.contains(player.getUniqueId())) return;
-                waiting.remove(player.getUniqueId());
-                player.teleport(Main.lobby);
-                player.getInventory().clear();
-                final List<UUID> copy = new ArrayList<>(waiting);
 
-                copy.forEach(e -> {
+    }
 
-                    Player p = Bukkit.getPlayer(e);
-
-                    p.sendMessage(Main.config().getString("Message.QuitGameStarted")
-                            .replace('&', '§' )
-                            .replaceAll("%count%", String.valueOf(waiting.size()))
-                            .replaceAll("%player%", player.getName())
-                            .replaceAll("%max%", String.valueOf(MAX_PLAYERS)));
-
-                });
-            } case STARTING -> {
-                if (!players.contains(findByUUID(player.getUniqueId()))) return;
-                players.remove(findByUUID(player.getUniqueId()));
-                player.getInventory().clear();
-                player.teleport(Main.lobby);
-                final List<GamePlayer> copy = new ArrayList<>(players);
-                copy.forEach(e -> {
-
-                    Player p = e.getPlayer();
-
-                    p.sendMessage(Main.config().getString("Message.QuitGameStarted")
-                            .replace('&', '§' )
-                            .replaceAll("%count%", String.valueOf(players.size()))
-                            .replaceAll("%player%", player.getName())
-                            .replaceAll("%max%", String.valueOf(MAX_PLAYERS)));
-
-                });
-            }
-
-        }
+    public void setupEndItens(Player player) {
+        if (!spectators.contains(player.getUniqueId())) return;
+        player.getInventory().setItem(2, new ItemBuilder(Material.NETHER_STAR).build()); //play
+        player.getInventory().setItem(4, new ItemBuilder(Material.COMPASS).build()); //player
+        player.getInventory().setItem(6, new ItemBuilder(Material.BED).build()); //lobby
     }
 
     public void setupItens(Player player) {
@@ -303,10 +371,10 @@ public class Match extends MinigameConfig {
                         leggins.setColor(Color.GREEN);
                         boots.setColor(Color.GREEN);
                     } case ORANGE -> {
-                        helmet.setColor(Color.GREEN);
-                        chestplate.setColor(Color.GREEN);
-                        leggins.setColor(Color.GREEN);
-                        boots.setColor(Color.GREEN);
+                        helmet.setColor(Color.ORANGE);
+                        chestplate.setColor(Color.ORANGE);
+                        leggins.setColor(Color.ORANGE);
+                        boots.setColor(Color.ORANGE);
                     } case WHITE -> {
                         helmet.setColor(Color.WHITE);
                         chestplate.setColor(Color.WHITE);
@@ -346,4 +414,57 @@ public class Match extends MinigameConfig {
     public GamePlayer findByUUID(UUID id) {
         return players.stream().filter(e -> e.getId().equals(id)).findFirst().orElse(null);
     }
+
+    public List<ItemStack> setupPlayerRandomItens() {
+        List<ItemStack> itens = new ArrayList<>();
+
+        itens.add(new ItemBuilder(Material.SNOW_BALL).setAmount(16).build());
+        itens.add(new ItemBuilder(Material.FIREBALL).build());
+        itens.add(new ItemBuilder(Material.WOOD_SWORD).addEnchant(Enchantment.KNOCKBACK, 2).build());
+        itens.add(new ItemBuilder(Material.TNT).build());
+
+        return itens;
+    }
+
+    public List<ItemStack> setupGoldBlockDropItens() {
+        List<ItemStack> itens = new ArrayList<>();
+
+        itens.add(new ItemBuilder(Material.ENDER_PEARL).build());
+        itens.add(new ItemBuilder(Material.IRON_SWORD).addEnchant(Enchantment.KNOCKBACK, 3).build());
+        ItemStack potion = new ItemStack(Material.POTION);
+        var m = (PotionMeta) potion.getItemMeta();
+        m.addCustomEffect(new PotionEffect(PotionEffectType.JUMP, 20*15, 2), true);
+        potion.setItemMeta(m);
+        itens.add(potion);
+        itens.add(new ItemBuilder(351,(short)1).setDisplayName("§cVida Extra").build());
+
+        return itens;
+    }
+
+    /*private void startScore(Player player){
+        Scoreboard scoreboard = Bukkit.getScoreboardManager().getNewScoreboard();
+        Objective objective = scoreboard.registerNewObjective("health", "health");
+        objective.setDisplaySlot(DisplaySlot.BELOW_NAME);
+        objective.setDisplayName("§c❤");
+
+        player.setScoreboard(scoreboard);
+        scoreboards.put(player, scoreboard);
+    }
+
+    private void updateHealthScore(Player player) {
+        UUID playerId = player.getUniqueId();
+        GamePlayer gamePlayer = findByUUID(playerId);
+        Scoreboard scoreboard = scoreboards.get(player);
+        if (scoreboard != null) {
+            Objective objective = scoreboard.getObjective("health");
+            if (objective != null) {
+                Score score = objective.getScore(player.getName());
+                score.setScore((int) gamePlayer.getLifes());
+            }
+        }
+    }
+
+    private void clearScore(Player player) {
+        player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
+    }*/
 }

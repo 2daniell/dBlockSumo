@@ -114,7 +114,7 @@ public class MatchManager extends Cache<Match> {
     public Match findMatchByPlayer(Player player) {
         return stream().filter(e -> e.getPlayers().stream().anyMatch(gamePlayer -> gamePlayer.getId().equals(player.getUniqueId()))).findFirst()
                 .orElse(stream().filter(e -> e.getWaiting().stream().anyMatch(id -> id.equals(player.getUniqueId()))).findFirst()
-                        .orElse(stream().filter(e -> e.getSpectator().stream().anyMatch(id -> id.equals(player.getUniqueId()))).findFirst()
+                        .orElse(stream().filter(e -> e.getSpectators().stream().anyMatch(id -> id.equals(player.getUniqueId()))).findFirst()
                                 .orElse(null)));
     }
 

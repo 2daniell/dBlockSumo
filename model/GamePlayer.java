@@ -18,7 +18,8 @@ public class GamePlayer extends MinigameConfig {
 
     private UUID id;
     private String name;
-    @Getter
+    @Setter
+    private boolean isDead;
     @Setter
     private GamePlayerColor color;
 
@@ -26,6 +27,11 @@ public class GamePlayer extends MinigameConfig {
         this.id = id;
         this.name = name;
         this.lifes = PLAYERS_LIFE;
+        this.isDead = false;
+    }
+
+    public String getDisplay() {
+        return color.getSimbol()+color.getName() + " [§f"+(int)lifes+color.getSimbol()+"]";
     }
 
     public Player getPlayer() {
