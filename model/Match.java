@@ -12,24 +12,20 @@ import com.daniel.blocksumo.objects.enums.MatchState;
 import com.daniel.blocksumo.world.WorldGenerator;
 import lombok.Getter;
 import lombok.Setter;
+import org.apache.commons.lang.StringUtils;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.enchantments.Enchantment;
-import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.LeatherArmorMeta;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.scoreboard.DisplaySlot;
-import org.bukkit.scoreboard.Objective;
-import org.bukkit.scoreboard.Score;
 import org.bukkit.scoreboard.Scoreboard;
 
-import java.io.Serializable;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Getter
 @Setter
@@ -48,9 +44,10 @@ public class Match extends MinigameConfig {
     private transient List<UUID> spectators;
     private transient MatchState state;
     private transient WorldGenerator generator;
+    private transient Random random = new Random();
 
     private final Map<Player, Scoreboard> scoreboards = new HashMap<>();
-
+    private boolean isStarted = false;
 
     public Match(String name, Location spawnWaiting, PlayerWaitingArea area) {
         this.name = name;
@@ -110,8 +107,6 @@ public class Match extends MinigameConfig {
                             cancel();
                             state = MatchState.STARTING;
 
-                            players = new ArrayList<>();
-
                             waiting.forEach(e -> {
                                 Player player = Bukkit.getPlayer(e);
                                 if (player != null) {
@@ -166,7 +161,8 @@ public class Match extends MinigameConfig {
     }
 
     public void startMatch() {
-        if (state == MatchState.STARTED) {
+        if (state == MatchState.STARTED && !isStarted) {
+            isStarted = true;
             List<ItemStack> dropCenter = setupGoldBlockDropItens();
             List<ItemStack> giveToPlayers = setupPlayerRandomItens();
 
@@ -176,7 +172,8 @@ public class Match extends MinigameConfig {
             int givePlayerCountdown = 30;
                 @Override
                 public void run() {
-                    if (players.isEmpty()) {
+                    if (state == MatchState.FINISHING) {
+                        System.out.println("VERDADE");
                         cancel();
                         return;
                     }
@@ -194,13 +191,16 @@ public class Match extends MinigameConfig {
 
                     players.forEach(e -> {
                         if (!e.isDead()) {
-                            ActionBarAPI.sendActionBar(e.getPlayer(), builder.toString());
+                            Player player = e.getPlayer();
+                            if (player != null && player.isOnline()) {
+                                ActionBarAPI.sendActionBar(player, builder.toString());
+                            }
                         }
                     });
 
                     dropCenterCountdown--;
                     if (dropCenterCountdown <= 0) {
-                        ItemStack drop = dropCenter.get(new Random().nextInt(dropCenter.size()));
+                        ItemStack drop = dropCenter.get(random.nextInt(dropCenter.size()));
                         goldBlock.getWorld().dropItem(goldBlock, drop);
                         dropCenterCountdown = 60;
                     }
@@ -209,8 +209,11 @@ public class Match extends MinigameConfig {
                     if (givePlayerCountdown <= 0) {
                         for (GamePlayer player : players) {
                             if (!player.isDead()) {
-                                ItemStack itemToGive = giveToPlayers.get(new Random().nextInt(giveToPlayers.size()));
-                                player.getPlayer().getInventory().addItem(itemToGive);
+                                Player p = player.getPlayer();
+                                if (p != null && p.isOnline()) {
+                                    ItemStack itemToGive = giveToPlayers.get(random.nextInt(giveToPlayers.size()));
+                                    p.getInventory().addItem(itemToGive);
+                                }
                             }
                         }
                         givePlayerCountdown = 30;
@@ -227,6 +230,11 @@ public class Match extends MinigameConfig {
 
     public void joinPlayer(Player player) {
         if (state.equals(MatchState.WAITING) && players.size() < MAX_PLAYERS) {
+            player.getInventory().clear();
+            player.getInventory().setHelmet(null);
+            player.getInventory().setChestplate(null);
+            player.getInventory().setLeggings(null);
+            player.getInventory().setBoots(null);
             waiting.add(player.getUniqueId());
             setupItens(player);
             player.teleport(spawnWaiting);
@@ -246,6 +254,8 @@ public class Match extends MinigameConfig {
             players.forEach(gm -> {
                 Player target = gm.getPlayer();
                 target.hidePlayer(player);
+                target.sendMessage(Main.config().getString("Message.Death").replaceAll("%player%", player.getName())
+                        .replace('&', '§'));
             });
             player.teleport(spawnWaiting);
             player.setGameMode(GameMode.SPECTATOR);
@@ -267,6 +277,10 @@ public class Match extends MinigameConfig {
                 }
             }.runTaskTimer(Main.getPlugin(Main.class), 0, 20);
         } else {
+            TitleAPI.sendTitle(gamePlayer.getPlayer(), 20, 20, 20, Main.config()
+                    .getString("Title.FinalDeath.Title").replace('&', '§'), Main.config().getString(
+                            "Title.FinalDeath.Subtitle"
+            ).replace('&', '§'));
             setSpec(gamePlayer);
         }
     }
@@ -285,10 +299,75 @@ public class Match extends MinigameConfig {
         players.forEach(e -> {
             Player p = e.getPlayer();
             p.hidePlayer(player);
+            p.sendMessage(Main.config().getString("Message.FinalDeath").replaceAll("%player%", player.getName())
+                    .replace('&', '§'));
         });
 
         spectators.add(player.getUniqueId());
+        ending(player);
         player.teleport(spawnWaiting);
+    }
+
+    public void goldBlockWin(GamePlayer gamePlayer) {
+
+        Player player = gamePlayer.getPlayer();
+
+        List<String> msgWin = Main.config().getStringList("Message.WinGame");
+        msgWin.replaceAll(msg -> msg.replace('&', '§').replaceAll("%player%", player.getName()));
+
+        List<Player> all = sendPlayersWinMessage(msgWin.toArray(new String[0]));
+        ending(all);
+        state = MatchState.FINISHING;
+        Bukkit.getScheduler().runTaskLater(Main.getPlugin(Main.class), () -> {
+            //manda geral pro lobby
+        }, 20*15);
+
+    }
+
+    private void ending(List<Player> all) {
+        all.forEach(this::ending);
+    }
+
+    private void ending(Player player) {
+
+        player.getInventory().clear();
+        player.getInventory().setHelmet(null);
+        player.getInventory().setChestplate(null);
+        player.getInventory().setLeggings(null);
+        player.getInventory().setBoots(null);
+
+        player.setMaxHealth(20);
+        player.setHealth(20);
+
+        setupEndItens(player);
+
+    }
+
+    private List<Player> sendPlayersWinMessage(String... msg) {
+        List<Player> all = players.stream().map(GamePlayer::getPlayer).collect(Collectors.toList());
+        players.forEach(e -> {spectators.forEach(s -> {var spec = Bukkit.getPlayer(s);e.getPlayer().showPlayer(spec); spec.spigot().setCollidesWithEntities(true);});});
+        spectators.stream().map(Bukkit::getPlayer).filter(Objects::nonNull).forEach(all::add);
+        all.forEach(e -> sendCenteredMessage(e, msg));
+        return all;
+    }
+
+    private static void sendCenteredMessage(Player player, String... messages) {
+        int screenWidth = 100;
+        int maxLength = 0;
+
+        for (String message : messages) {
+            int length = ChatColor.stripColor(message).length();
+            if (length > maxLength) {
+                maxLength = length;
+            }
+        }
+
+        int padSize = (int) Math.floor((screenWidth - maxLength) / 2);
+        String pad = StringUtils.repeat(" ", padSize);
+
+        for (String message : messages) {
+            player.sendMessage(pad + message);
+        }
     }
 
     private void respawn(GamePlayer gamePlayer) {
@@ -312,27 +391,57 @@ public class Match extends MinigameConfig {
         new BukkitRunnable() {
             @Override
             public void run() {
-                TitleAPI.sendTitle(player, 20, 20, 20, "§a§lVOCE NASCEU FDP", "A");
+                TitleAPI.sendTitle(player, 20, 20, 20, Main.config().getString("Titles.Respawn.Title").replace('&', '§')
+                        , Main.config().getString("Titles.Respawn.Title").replace('&', '§'));
             }
         }.runTaskLater(Main.getPlugin(Main.class), 20);
     }
 
     public void quitPlayer(Player player) {
+        switch (state) {
 
+            case WAITING -> {
+                waiting.remove(player.getUniqueId());
+                player.getInventory().clear();
+                waiting.forEach(e -> {
+                player.teleport(Main.lobby);
+                    var p = Bukkit.getPlayer(e);
+                    p.sendMessage(Main.config().getString("Message.QuitGameWaiting").replace('&', '§')
+                            .replaceAll("%player%", player.getName()).replaceAll("%count%", String.valueOf(waiting.size()))
+                            .replaceAll("%max%", String.valueOf(MinigameConfig.MAX_PLAYERS)));
+                });
+            } case STARTING, STARTED -> {
+                players.remove(findByUUID(player.getUniqueId()));
+                player.getInventory().clear();
+                player.getInventory().setHelmet(null);
+                player.getInventory().setChestplate(null);
+                player.getInventory().setLeggings(null);
+                player.getInventory().setBoots(null);
+                players.forEach(e -> {
+                    var p = e.getPlayer();
+                    p.sendMessage(Main.config().getString("Message.QuitGameStarted").replace('&', '§')
+                            .replaceAll("%player%", player.getName()).replaceAll("%count%", String.valueOf(waiting.size()))
+                            .replaceAll("%max%", String.valueOf(MinigameConfig.MAX_PLAYERS)));
+                });
+                if (players.isEmpty() || players.size() == 1) {
+                    System.out.println("PARTIDA ACABOU");
+                    state = MatchState.FINISHING;
+                }
+            }
+        }
     }
 
     public void setupEndItens(Player player) {
-        if (!spectators.contains(player.getUniqueId())) return;
-        player.getInventory().setItem(2, new ItemBuilder(Material.NETHER_STAR).build()); //play
-        player.getInventory().setItem(4, new ItemBuilder(Material.COMPASS).build()); //player
-        player.getInventory().setItem(6, new ItemBuilder(Material.BED).build()); //lobby
+        player.getInventory().setItem(3, new ItemBuilder(Material.NETHER_STAR).setDisplayName(
+                "§eJogar Novamente"
+        ).build());
+        player.getInventory().setItem(5, new ItemBuilder(Material.BED)
+                .setDisplayName("§eVoltar ao Lobby").build());
     }
 
     public void setupItens(Player player) {
         switch (state) {
-            case RELOADING -> {
-
-            } case STARTING, STARTED -> {
+            case STARTING, STARTED -> {
                 player.getInventory().clear();
                 player.getInventory().setItem(0, new ItemBuilder(Material.SHEARS).build());
                 player.getInventory().setItem(1, new ItemStack(Material.WOOL, 64));
@@ -394,7 +503,7 @@ public class Match extends MinigameConfig {
                 player.getInventory().setBoots(boots.build());
             } case WAITING -> {
                 player.getInventory().clear();
-                player.getInventory().setItem(8, new ItemBuilder(Material.BED).setDisplayName("§cVoltar ao Lobby").build());
+                player.getInventory().setItem(8, new ItemBuilder(Material.BED).setDisplayName("§eVoltar ao Lobby").build());
             }
         }
     }

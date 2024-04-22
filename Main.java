@@ -3,6 +3,7 @@ package com.daniel.blocksumo;
 import com.daniel.blocksumo.api.enums.Version;
 import com.daniel.blocksumo.command.ArenaCommand;
 import com.daniel.blocksumo.command.BlockSumoCommand;
+import com.daniel.blocksumo.events.GenericEvents;
 import com.daniel.blocksumo.events.ItensEvents;
 import com.daniel.blocksumo.events.MinigameEvents;
 import com.daniel.blocksumo.events.SpectatorEvents;
@@ -68,6 +69,7 @@ public class Main extends JavaPlugin {
         Bukkit.getPluginManager().registerEvents(new MinigameEvents(manager), this);
         Bukkit.getPluginManager().registerEvents(new ItensEvents(manager), this);
         Bukkit.getPluginManager().registerEvents(new SpectatorEvents(manager), this);
+        Bukkit.getPluginManager().registerEvents(new GenericEvents(manager), this);
     }
 
     public void registerCommand() {

@@ -39,6 +39,7 @@ import java.util.concurrent.ThreadLocalRandom;
 public class MinigameEvents implements Listener {
 
     private final MatchManager manager;
+    private transient boolean isTimerRunning = false;
     private final List<UUID> starting;
     private final List<UUID> dead;
 
@@ -53,7 +54,9 @@ public class MinigameEvents implements Listener {
         Player player = e.getPlayer();
         Match match = manager.findMatchByPlayer(player);
         if (match == null) return;
-        if (dead.contains(player.getUniqueId())) e.setCancelled(true);
+        if (dead.contains(player.getUniqueId()) || match.getSpectators().contains(player.getUniqueId())) {
+            e.setCancelled(true); return;
+        }
         switch (match.getState()) {
             case WAITING -> {
                 if (!match.getWaiting().contains(player.getUniqueId())) return;
@@ -71,7 +74,7 @@ public class MinigameEvents implements Listener {
                 }
                 if (match.getGenerator().isOriginalBlock(e.getBlock())) {
                     e.setCancelled(true);
-                    player.sendMessage("§4§lERRO §cVocê so pode quebrar blocos colocados por players");
+                    player.sendMessage(Main.config().getString("Message.BreakOriginalBlocks"));
                 } else e.getBlock().getDrops().clear();
             }
         }
@@ -82,7 +85,9 @@ public class MinigameEvents implements Listener {
         Player player = e.getPlayer();
         Match match = manager.findMatchByPlayer(player);
         if (match == null) return;
-        if (dead.contains(player.getUniqueId())) e.setCancelled(true);
+        if (dead.contains(player.getUniqueId()) || match.getSpectators().contains(player.getUniqueId())) {
+            e.setCancelled(true); return;
+        }
         switch (match.getState()) {
             case WAITING -> {
                 if (match.getWaiting().contains(player.getUniqueId())) e.setCancelled(true);
@@ -114,11 +119,9 @@ public class MinigameEvents implements Listener {
                     block.setData(wool.getData());
                 }
                 List<Location> blockList = match.getNearbyBlocks(4);
-                Iterator<GamePlayer> iterator = match.getPlayers().iterator();
-                while (iterator.hasNext()) {
-                    Player p = iterator.next().getPlayer();
-                    blockList.forEach(b -> BreakBlock.playBlockBreakAnimation(p, b));
-                }
+                blockList.forEach(b -> {
+                    BreakBlock.playBlockBreakAnimation(match.getPlayers(), b);
+                });
             }
         }
     }
@@ -135,7 +138,26 @@ public class MinigameEvents implements Listener {
     //say in chat
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onChat(AsyncPlayerChatEvent e) {
-        //code
+        Player player = e.getPlayer();
+        Match match = manager.findMatchByPlayer(player);
+        if(match == null) return;
+        switch (match.getState()) {
+            case WAITING -> {
+                e.setCancelled(true);
+                match.getWaiting().forEach(target -> {
+                    Player t = Bukkit.getPlayer(target);
+                    t.sendMessage((player.hasPermission("blocksumo.vip") ? "§f" : "§7")+player.getName() + " » " + e.getMessage());
+                });
+            } case STARTING, STARTED -> {
+                e.setCancelled(true);
+                if (match.getSpectators().contains(player.getUniqueId())) return;
+                GamePlayer gm = match.findByUUID(player.getUniqueId());
+                match.getPlayers().forEach(target -> {
+                    Player t = target.getPlayer();
+                    t.sendMessage(gm.getColor().getTag() + (player.hasPermission("blocksumo.vip") ? "§f" : "§7")+player.getName() + " » " + e.getMessage());
+                });
+            }
+        }
     }
 
     @EventHandler //fall in void
@@ -170,22 +192,25 @@ public class MinigameEvents implements Listener {
                         setTimingDead(player.getUniqueId(), match);
                         return;
                     }
-                    if (Utils.compare(player.getLocation(), match.getGoldBlock())) {
+                    if (Utils.compare(player.getLocation(), match.getGoldBlock()) && !isTimerRunning) {
+                        isTimerRunning = true;
                         new BukkitRunnable() {
 
                             int segunds = 0;
 
                             @Override
                             public void run() {
-                                System.out.println(segunds);
                                 if (!Utils.compare(player.getLocation(), match.getGoldBlock())) {
-                                    System.out.println("EFIDEPE SAIU");
+                                    isTimerRunning = false;
                                     cancel();
                                     return;
                                 }
 
                                 if (segunds >= MinigameConfig.TIME_WIN) {
-                                    System.out.println("EFIDEPE ARROMBADO GANHOUKKKKKKKKKKKKKK");
+                                    match.goldBlockWin(match.findByUUID(player.getUniqueId()));
+                                    cancel();
+                                    isTimerRunning = false;
+                                    return;
                                 }
                                 segunds++;
                             }
@@ -196,42 +221,47 @@ public class MinigameEvents implements Listener {
         }
     }
 
-    @EventHandler //CORRIGIR
-    public void onTeleport(PlayerTeleportEvent e) {
+    @EventHandler
+    public void onTP(PlayerTeleportEvent e) {
         Player player = e.getPlayer();
         Match match = manager.findMatchByPlayer(player);
         if (match == null) return;
         if (match.getState() == MatchState.STARTING) {
             if (!match.getPlayers().contains(match.findByUUID(player.getUniqueId()))) return;
-            if (starting.contains(player.getUniqueId())) return;
-            starting.add(player.getUniqueId());
-            new BukkitRunnable() {
+            if (!starting.contains(player)) {
+                starting.add(player.getUniqueId());
 
-                int countdown = MinigameConfig.START_MATCH_TIME;
+                new BukkitRunnable() {
 
-                @Override
-                public void run() {
-                    if (countdown == 0) {
-                        cancel();
-                        starting.remove(player.getUniqueId());
-                        GamePlayer gamePlayer = match.findByUUID(player.getUniqueId());
-                        player.setMaxHealth(gamePlayer.getLifes() * 2);
-                        player.setHealth(gamePlayer.getLifes() * 2);
-                        ActionBarAPI.sendActionBar(player, Main.config().getString("Message.StartedMatch")
-                                .replace('&', '§'));
-                        match.setState(MatchState.STARTED);
-                        match.startMatch();
-                        return;
+                    int countdown = MinigameConfig.START_MATCH_TIME;
+
+                    @Override
+                    public void run() {
+
+                        if (countdown <= 0) {
+                            starting.remove(player.getUniqueId());
+
+                            GamePlayer gamePlayer = match.findByUUID(player.getUniqueId());
+                            player.setMaxHealth(gamePlayer.getLifes() * 2);
+                            player.setHealth(gamePlayer.getLifes() * 2);
+
+                            ActionBarAPI.sendActionBar(player, Main.config().getString("Message.StartedMatch")
+                                    .replace('&', '§'));
+                            match.setState(MatchState.STARTED);
+
+                            match.startMatch();
+                            cancel();
+                            return;
+                        }
+
+                        ActionBarAPI.sendActionBar(player, Main.config().getString(
+                                "Message.MatchStartCountdown"
+                        ).replaceAll("%count%", String.valueOf(countdown)).replace('&', '§'));
+                        countdown--;
                     }
-                    ActionBarAPI.sendActionBar(player, Main.config().getString(
-                            "Message.MatchStartCountdown"
-                    ).replaceAll("%count%", String.valueOf(countdown)).replace('&', '§'));
-                    countdown--;
-
-                }
-            }.runTaskTimer(Main.getPlugin(Main.class), 0, 20);
+                }.runTaskTimer(Main.getPlugin(Main.class), 0 ,20);
+            }
         }
-
     }
 
     @EventHandler //Not move item in inventory
@@ -334,43 +364,23 @@ public class MinigameEvents implements Listener {
                 if(player.hasPermission("blocksumo.admin")) return;
                 List<String> cmdConfig = Main.config().getStringList("CommandBlock.MatchStarted");
                 if (!cmdConfig.contains(e.getMessage())) {
-                    player.sendMessage("§4§lERRO §cVocê não pode executar esse comando em uma partida");
+                    player.sendMessage(Main.config().getString("Message.UnavaliableCommandInMatch"));
                     e.setCancelled(true);
                 }
             } case WAITING -> {
                 if(player.hasPermission("blocksumo.admin")) return;
                 List<String> cmdConfig = Main.config().getStringList("CommandBlock.MatchWaiting");
                 if (!cmdConfig.contains(e.getMessage())) {
-                    player.sendMessage("§4§lERRO §cVocê não pode executar esse comando em uma partida");
+                    player.sendMessage(Main.config().getString("Message.UnavaliableCommandInMatch"));
                     e.setCancelled(true);
                 }
             } case STARTING -> {
                 if(player.hasPermission("blocksumo.admin")) return;
                 List<String> cmdConfig = Main.config().getStringList("CommandBlock.MatchStarting");
                 if (!cmdConfig.contains(e.getMessage())) {
-                    player.sendMessage("§4§lERRO §cVocê não pode executar esse comando em uma partida");
+                    player.sendMessage(Main.config().getString("Message.UnavaliableCommandInMatch"));
                     e.setCancelled(true);
                 }
-            }
-        }
-    }
-
-    @EventHandler //return to lobby
-    public void onInteract(PlayerInteractEvent e) {
-        Player player = e.getPlayer();
-        var match = manager.findMatchByPlayer(player);
-        if (match == null) return;
-        if (match.getState() == MatchState.WAITING) {
-            if (!match.getWaiting().contains(player.getUniqueId())) return;
-
-            if (e.getAction() != Action.RIGHT_CLICK_AIR && e.getAction() != Action.RIGHT_CLICK_BLOCK) return;
-
-            ItemStack item = e.getItem();
-            if (item == null || !item.hasItemMeta() || !item.getItemMeta().hasDisplayName()) return;
-
-            if (item.getItemMeta().getDisplayName().equalsIgnoreCase("§cVoltar ao Lobby")) {
-                player.sendMessage("§aVoltando ao lobby");
-                match.quitPlayer(player);
             }
         }
     }

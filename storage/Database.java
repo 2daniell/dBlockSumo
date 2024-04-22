@@ -11,25 +11,20 @@ public class Database {
     private static Connection con;
 
     public static Connection open() {
-        if (Main.config().getBoolean("MySQL.Enable")) {
 
-            String username = Main.config().getString("MySQL.Username");
-            String database = Main.config().getString("MySQL.Database");
-            String host = Main.config().getString("MySQL.Host");
-            String port = Main.config().getString("MySQL.Port");
-            String password = Main.config().getString("MySQL.Password");
-            String url = "jdbc:mysql://"+host+":"+port+"/"+database+"?characterEncoding=utf8";
+        String username = Main.config().getString("MySQL.Username");
+        String database = Main.config().getString("MySQL.Database");
+        String host = Main.config().getString("MySQL.Host");
+        String port = Main.config().getString("MySQL.Port");
+        String password = Main.config().getString("MySQL.Password");
+        String url = "jdbc:mysql://" + host + ":" + port + "/" + database + "?characterEncoding=utf8";
 
-            try {
-                con = DriverManager.getConnection(url, username, password);
-                createTable(con);
-            } catch (SQLException e) {
-                Bukkit.getConsoleSender().sendMessage(Main.prefix + "§cA conexao com o §fMySQL §cfalhou!");
-                Bukkit.getConsoleSender().sendMessage(Main.prefix + "§cAlterando para o §fSQLite");
-                openSQLite();
-            }
-        } else {
-            openSQLite();
+        try {
+            con = DriverManager.getConnection(url, username, password);
+            createTable(con);
+        } catch (SQLException e) {
+            Bukkit.getConsoleSender().sendMessage("§4§lERRO §cA conexão com §fMySQL §cfalhou.");
+            Bukkit.getPluginManager().disablePlugin(Main.getPlugin(Main.class));
         }
 
         return con;
@@ -67,7 +62,7 @@ public class Database {
         File datafolder = new File("plugins/dBlockSumo/databases");
         if (!datafolder.exists()) datafolder.mkdirs();
         File file = new File(datafolder, "database.db");
-        String url = "jdbc:sqlite:"+file;
+        String url = "jdbc:sqlite:" + file;
 
         try {
             Class.forName("org.sqlite.JDBC");

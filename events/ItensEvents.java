@@ -49,7 +49,7 @@ public class ItensEvents implements Listener {
                 }
             }
             for (Block block : e.blockList()) {
-                if (block.getType() == Material.WOOL) {
+                if (block.getType() == Material.WOOL && (!match.getGenerator().isOriginalBlock(block))) {
                     block.setType(Material.AIR);
                 }
             }
@@ -79,10 +79,16 @@ public class ItensEvents implements Listener {
 
                     Fireball fireball = player.launchProjectile(Fireball.class);
                     fireball.setIsIncendiary(false);
-
+                    fireball.setYield(0);
                     Vector direction = player.getLocation().getDirection();
                     fireball.setVelocity(direction.multiply(2));
 
+                    int amount = item.getAmount();
+                    if (amount > 1) {
+                        item.setAmount(amount - 1);
+                    } else {
+                        player.getInventory().remove(item);
+                    }
                 }
             }
         }
@@ -94,37 +100,39 @@ public class ItensEvents implements Listener {
         if (projectile instanceof Fireball) {
             Fireball fireball = (Fireball) projectile;
             if (fireball.getShooter() instanceof Player) {
+                fireball.setYield(0);
+
                 Player shooter = (Player) fireball.getShooter();
                 Match match = manager.findMatchByPlayer(shooter);
                 if (match == null || match.getSpectators().contains(shooter.getUniqueId())) {
                     return;
                 }
-            }
 
-            ((Fireball) projectile).setIsIncendiary(false);
-            Location impactLocation = projectile.getLocation();
 
-            int radius = 3;
-            int minX = impactLocation.getBlockX() - radius;
-            int minY = impactLocation.getBlockY() - radius;
-            int minZ = impactLocation.getBlockZ() - radius;
-            int maxX = impactLocation.getBlockX() + radius;
-            int maxY = impactLocation.getBlockY() + radius;
-            int maxZ = impactLocation.getBlockZ() + radius;
+                ((Fireball) projectile).setIsIncendiary(false);
+                Location impactLocation = projectile.getLocation();
 
-            World world = impactLocation.getWorld();
+                int radius = 3;
+                int minX = impactLocation.getBlockX() - radius;
+                int minY = impactLocation.getBlockY() - radius;
+                int minZ = impactLocation.getBlockZ() - radius;
+                int maxX = impactLocation.getBlockX() + radius;
+                int maxY = impactLocation.getBlockY() + radius;
+                int maxZ = impactLocation.getBlockZ() + radius;
 
-            for (int x = minX; x <= maxX; x++) {
-                for (int y = minY; y <= maxY; y++) {
-                    for (int z = minZ; z <= maxZ; z++) {
-                        Block block = world.getBlockAt(x, y, z);
-                        if (block.getType() == Material.WOOL) {
-                            block.setType(Material.AIR);
+                World world = impactLocation.getWorld();
+
+                for (int x = minX; x <= maxX; x++) {
+                    for (int y = minY; y <= maxY; y++) {
+                        for (int z = minZ; z <= maxZ; z++) {
+                            Block block = world.getBlockAt(x, y, z);
+                            if (block.getType() == Material.WOOL && (!match.getGenerator().isOriginalBlock(block))) {
+                                block.setType(Material.AIR);
+                            }
                         }
                     }
                 }
             }
         }
-
     }
 }

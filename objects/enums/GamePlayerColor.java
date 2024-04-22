@@ -26,4 +26,19 @@ public enum GamePlayerColor {
     public String getName() {
         return name;
     }
+
+    public String getTag() {
+        String primeiraLetra = this.name().substring(0, 1).toUpperCase();
+        return switch (this) {
+            case RED -> "§c[" + primeiraLetra + "] §f";
+            case BLUE -> "§1[" + primeiraLetra + "] §f";
+            case GREEN -> "§2[" + primeiraLetra + "] §f";
+            case YELLOW -> "§e[" + primeiraLetra + "] §f";
+            case ORANGE -> "§6[" + primeiraLetra + "] §f";
+            case PURPLE -> "§5[" + primeiraLetra + "] §f";
+            case WHITE -> "§f[" + primeiraLetra + "] §f";
+            case BLACK -> "§0[" + primeiraLetra + "] §f";
+        };
+    }
+
 }

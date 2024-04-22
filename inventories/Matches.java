@@ -1,5 +1,6 @@
 package com.daniel.blocksumo.inventories;
 
+import com.daniel.blocksumo.Main;
 import com.daniel.blocksumo.api.ItemBuilder;
 import com.daniel.blocksumo.manager.MatchManager;
 import com.daniel.blocksumo.menu.Menu;
@@ -35,7 +36,7 @@ public class Matches extends Menu {
 
         if (!e.getCurrentItem().hasItemMeta()) return;
         if (!e.getCurrentItem().getItemMeta().hasDisplayName()) return;
-        if (e.getCurrentItem().getItemMeta().getDisplayName().equalsIgnoreCase("§aJogar")) {
+        if (e.getCurrentItem().getItemMeta().getDisplayName().equalsIgnoreCase("§e§lBlockSumo")) {
             Match match = matches.getFirst();
             if (match.getPlayersSize() >= MinigameConfig.MAX_PLAYERS) return;
             match.joinPlayer(player);
@@ -48,30 +49,31 @@ public class Matches extends Menu {
     public void setItens(Inventory inventory) {
         List<Match> matches = manager.findMatchReady();
 
-        inventory.setItem(0, new ItemBuilder(Material.STAINED_GLASS_PANE, (short) 2).setDisplayName(" ").build());
-        inventory.setItem(1, new ItemBuilder(Material.STAINED_GLASS_PANE, (short) 2).setDisplayName(" ").build());
-        inventory.setItem(9, new ItemBuilder(Material.STAINED_GLASS_PANE, (short) 2).setDisplayName(" ").build());
-
-        inventory.setItem(17, new ItemBuilder(Material.STAINED_GLASS_PANE, (short) 2).setDisplayName(" ").build());
-        inventory.setItem(8, new ItemBuilder(Material.STAINED_GLASS_PANE, (short) 2).setDisplayName(" ").build());
-        inventory.setItem(7, new ItemBuilder(Material.STAINED_GLASS_PANE, (short) 2).setDisplayName(" ").build());
-
-        inventory.setItem(28, new ItemBuilder(Material.STAINED_GLASS_PANE, (short) 2).setDisplayName(" ").build());
-        inventory.setItem(27, new ItemBuilder(Material.STAINED_GLASS_PANE, (short) 2).setDisplayName(" ").build());
-        inventory.setItem(18, new ItemBuilder(Material.STAINED_GLASS_PANE, (short) 2).setDisplayName(" ").build());
-
-        inventory.setItem(26, new ItemBuilder(Material.STAINED_GLASS_PANE, (short) 2).setDisplayName(" ").build());
-        inventory.setItem(34, new ItemBuilder(Material.STAINED_GLASS_PANE, (short) 2).setDisplayName(" ").build());
-        inventory.setItem(35, new ItemBuilder(Material.STAINED_GLASS_PANE, (short) 2).setDisplayName(" ").build());
+        List<String> lore = Main.config().getStringList("Menu.BlockSumo.Lore");
+        lore.replaceAll(e -> e.replace('&', '§'));
 
         inventory.setItem(12, new ItemBuilder(Material.WOOL).addEnchant(Enchantment.KNOCKBACK, 1).addItemFlag(ItemFlag.HIDE_ENCHANTS)
-                .setDisplayName((matches.isEmpty()) ? "§7Não encontramos nenhuma partida." : "§aJogar").build());
+                .setDisplayName((matches.isEmpty()) ? "§7Não encontramos nenhuma partida." : "§e§lBlockSumo")
+                .setLore(lore).build());
 
-        inventory.setItem(14, new ItemBuilder(Material.BOOK).setDisplayName("§aPartidas").addEnchant(Enchantment.KNOCKBACK, 1)
-                .addItemFlag(ItemFlag.HIDE_ENCHANTS).build());
+        if (player.hasPermission("blocksumo.vip")) {
 
-        inventory.setItem(31, new ItemBuilder(Material.BARRIER).setDisplayName("§cSair").build());
+            List<String> loreMap = Main.config().getStringList("Menu.EscolherMapa.PermLore");
+            loreMap.replaceAll(e -> e.replace('&', '§'));
 
+            inventory.setItem(14, new ItemBuilder(Material.BOOK).setDisplayName("§e§lEscolher Mapa").setLore(loreMap)
+                    .addEnchant(Enchantment.KNOCKBACK, 1)
+                    .addItemFlag(ItemFlag.HIDE_ENCHANTS).build());
+
+        } else {
+
+            List<String> loreNoPerm = Main.config().getStringList("Menu.EscolherMapa.NoPermLore");
+            loreNoPerm.replaceAll(e -> e.replace('&', '§'));
+
+            inventory.setItem(14, new ItemBuilder(Material.BOOK).setDisplayName("§e§lEscolher Mapa").addEnchant(Enchantment.KNOCKBACK, 1)
+                            .setLore(loreNoPerm)
+                    .addItemFlag(ItemFlag.HIDE_ENCHANTS).build());
+        }
         inventory.setItem(31, new ItemBuilder(Material.BARRIER).setDisplayName("§cSair").build());
     }
 }

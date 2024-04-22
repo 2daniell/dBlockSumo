@@ -127,7 +127,6 @@ public class WorldGenerator {
         } else {
             System.err.println("O arquivo da arena " + arena + " não foi encontrado.");
         }
-
     }
 
     /*public void loadArenas() {
